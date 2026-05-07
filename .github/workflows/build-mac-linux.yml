@@ -1,0 +1,54 @@
+name: Build DesktopX (Mac + Linux)
+
+on:
+  push:
+    branches: [ main, master, develop ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main, master, develop ]
+  workflow_dispatch:  # Manual trigger
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            platform: mac
+            artifact: DesktopX.dmg
+          - os: ubuntu-latest
+            platform: linux
+            artifact: DesktopX-*.AppImage
+
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build for ${{ matrix.platform }}
+        run: npm run build:${{ matrix.platform }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: DesktopX-${{ matrix.platform }}
+          path: dist/
+          retention-days: 30
+
+      - name: Upload to Release (on tag)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
