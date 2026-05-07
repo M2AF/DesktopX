@@ -5,3 +5,4 @@ _redirects
 mysave.json
 .vscode
 .gitattributes
+node_modules
