@@ -2309,6 +2309,13 @@
 
     // GLOBAL state (persist across room transitions)
     let pinnedIdCounter = 0;
+    // Ensures pinnedIdCounter is always above the highest ID already in the room.
+    // Call this after loading any saved items so new pins never collide with existing IDs.
+    function bumpIdCounter(items) {
+      if (!Array.isArray(items)) return;
+      const maxId = items.reduce((m, item) => Math.max(m, item.id || 0), 0);
+      if (maxId > pinnedIdCounter) pinnedIdCounter = maxId;
+    }
     let globalPinnedWindows = []; // never cleared on room change!
     let animatedTextures = []; // for GIFs
     let currentPreviewTitle = '', currentPreviewBody = '';
@@ -2695,6 +2702,7 @@
       const raw = await DB.get('pinLayout'); if (!raw) return;
       try {
         const items = JSON.parse(raw);
+        bumpIdCounter(items); // fix: ensure new pins don't reuse IDs already in the saved layout
         for (const item of items) {
           // If we have blob data, use spawnPinnedFromData for ALL types —
           // it handles gif, image, model3d, etc. with correct textures and blobUrl.
@@ -5128,6 +5136,7 @@
         const data = JSON.parse(text);
         const items = data.items || data; // support both wrapped and flat arrays
         if (!Array.isArray(items)) throw new Error('Invalid layout file');
+        bumpIdCounter(items); // fix: ensure new pins don't reuse IDs already in the imported layout
         // Clear existing pinned
         [...globalPinnedWindows].forEach(pw => closePinnedWindow(pw));
         _gifEntryCache.clear();
@@ -5167,6 +5176,7 @@
         const items = data.items || data;
         if (!Array.isArray(items) || !items.length) return false;
 
+        bumpIdCounter(items); // fix: ensure new pins don't reuse IDs already in save.json
         [...globalPinnedWindows].forEach(pw => closePinnedWindow(pw));
         _gifEntryCache.clear();
         globalPinnedWindows.length = 0;
