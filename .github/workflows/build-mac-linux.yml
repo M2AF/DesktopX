@@ -4,9 +4,7 @@ on:
   push:
     branches: [ main, master, develop ]
     tags: [ 'v*' ]
-  pull_request:
-    branches: [ main, master, develop ]
-  workflow_dispatch:  # Manual trigger
+  workflow_dispatch:
 
 jobs:
   build:
@@ -15,10 +13,8 @@ jobs:
         include:
           - os: macos-latest
             platform: mac
-            artifact: DesktopX.dmg
           - os: ubuntu-latest
             platform: linux
-            artifact: DesktopX-*.AppImage
 
     runs-on: ${{ matrix.os }}
     
@@ -32,6 +28,12 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libopenjp2-7 libssl3 libxss1 libnss3 libgconf-2-4 libatk1.0-0 libatk-bridge2.0-0 libgdk-pixbuf2.0-0 libgtk-3-0 libgbm1 libnotify-dev libnss3 libxss1 libappindicator3-1 libindicator7 gconf-service
+
       - name: Install dependencies
         run: npm install
 
@@ -39,6 +41,7 @@ jobs:
         run: npm run build:${{ matrix.platform }}
 
       - name: Upload artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: DesktopX-${{ matrix.platform }}
