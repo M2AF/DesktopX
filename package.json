@@ -28,7 +28,7 @@
     "files": [
       "main.js",
       "preload.js",
-      "app/**/*"
+      "app"
     ],
     "win": {
       "target": [
