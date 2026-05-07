@@ -54,7 +54,9 @@
       ],
       "icon": "app/app.png",
       "category": "public.app-category.entertainment",
-      "darkModeSupport": true
+      "darkModeSupport": true,
+      "sign": null,
+      "notarize": false
     },
     "linux": {
       "target": ["AppImage"],
