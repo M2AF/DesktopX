@@ -82,7 +82,7 @@ DesktopX is completely client-side and requires zero build steps!
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/yourusername/DesktopX.git
+   git clone https://github.com/M2AF/DesktopX.git
    cd DesktopX/app
    ```
 
