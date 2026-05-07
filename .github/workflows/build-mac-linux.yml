@@ -25,7 +25,8 @@ jobs:
       
       - run: npm run build:mac
       
-      - uses: actions/upload-artifact@v4
+      - if: always()
+        uses: actions/upload-artifact@v4
         with:
           name: DesktopX-mac
           path: dist/
@@ -51,7 +52,8 @@ jobs:
       
       - run: npm run build:linux
       
-      - uses: actions/upload-artifact@v4
+      - if: always()
+        uses: actions/upload-artifact@v4
         with:
           name: DesktopX-linux
           path: dist/
