@@ -57,10 +57,7 @@
       "darkModeSupport": true
     },
     "linux": {
-      "target": [
-        { "target": "AppImage", "arch": ["x64"] }
-      ],
-      "icon": "app/logo.png",
+      "target": ["AppImage"],
       "category": "Game"
     }
   }
