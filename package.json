@@ -52,7 +52,7 @@
       "target": [
         { "target": "dmg", "arch": ["x64", "arm64"] }
       ],
-      "icon": "app/logo.png",
+      "icon": "app/app.png",
       "category": "public.app-category.entertainment",
       "darkModeSupport": true
     },
