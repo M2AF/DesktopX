@@ -1,0 +1,67 @@
+{
+  "name": "desktopx",
+  "version": "1.0.0",
+  "description": "The Next-Generation 3D Spatial Operating Environment",
+  "main": "main.js",
+  "author": "criptoejesus",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "start":       "electron .",
+    "build:win":   "electron-builder --win --x64",
+    "build:mac":   "electron-builder --mac",
+    "build:linux": "electron-builder --linux --x64"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "electron":         "^30.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId":       "com.desktopx.app",
+    "productName": "DesktopX",
+    "copyright":   "Copyright © 2025 criptoejesus",
+    "directories": {
+      "output": "dist",
+      "buildResources": "assets"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "app/**/*"
+    ],
+    "win": {
+      "target": [
+        { "target": "nsis",     "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "icon": "app/favicon.ico",
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "DesktopX",
+      "installerIcon": "app/favicon.ico",
+      "uninstallerIcon": "app/favicon.ico",
+      "installerHeaderIcon": "app/favicon.ico"
+    },
+    "mac": {
+      "target": [
+        { "target": "dmg", "arch": ["x64", "arm64"] }
+      ],
+      "icon": "app/logo.png",
+      "category": "public.app-category.entertainment",
+      "darkModeSupport": true
+    },
+    "linux": {
+      "target": [
+        { "target": "AppImage", "arch": ["x64"] }
+      ],
+      "icon": "app/logo.png",
+      "category": "Game"
+    }
+  }
+}
