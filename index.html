@@ -2666,16 +2666,28 @@
 
     // Save/restore pin layout - includes rotation, custom dist, and userRotated flag
     async function savePinLayout() {
-      const layout = globalPinnedWindows.filter(pw => !pw.isWebPanel).map(pw => ({
-        id: pw.id, title: pw.title, type: pw.type,
-        px: pw.mesh.position.x, py: pw.mesh.position.y, pz: pw.mesh.position.z,
-        rx: pw.mesh.rotation.x, ry: pw.mesh.rotation.y, rz: pw.mesh.rotation.z,
-        userRotated: !!pw.mesh.userData.userRotated,
-        w: pw.mesh.userData.worldW || 3.2, h: pw.mesh.userData.worldH || 2.0,
-        // Compute dist from room center at save time for reference
-        dist: pw.mesh.position.length().toFixed(2),
+      const entries = await Promise.all(globalPinnedWindows.filter(pw => !pw.isWebPanel).map(async pw => {
+        const entry = {
+          id: pw.id, title: pw.title, type: pw.type,
+          px: pw.mesh.position.x, py: pw.mesh.position.y, pz: pw.mesh.position.z,
+          rx: pw.mesh.rotation.x, ry: pw.mesh.rotation.y, rz: pw.mesh.rotation.z,
+          userRotated: !!pw.mesh.userData.userRotated,
+          w: pw.mesh.userData.worldW || 3.2, h: pw.mesh.userData.worldH || 2.0,
+          dist: pw.mesh.position.length().toFixed(2),
+        };
+        if (pw.type === 'model3d' && pw.blobUrl && pw.blobUrl.startsWith('blob:')) {
+          try {
+            let blob = await (await fetch(pw.blobUrl)).blob();
+            const ext = (pw.title.split('.').pop() || 'glb').toLowerCase();
+            const mime = { glb: 'model/gltf-binary', gltf: 'model/gltf+json', fbx: 'application/octet-stream' }[ext] || 'model/gltf-binary';
+            if (blob.type !== mime) blob = new Blob([await blob.arrayBuffer()], { type: mime });
+            entry.blobBase64 = await new Promise(r => { const fr = new FileReader(); fr.onload = e => r(e.target.result); fr.readAsDataURL(blob); });
+            entry.blobMime = mime;
+          } catch (e) { console.warn('[savePinLayout] blob serialize failed:', pw.title, e); }
+        }
+        return entry;
       }));
-      await DB.set('pinLayout', JSON.stringify(layout));
+      await DB.set('pinLayout', JSON.stringify(entries));
       UIsound('pin'); showToast('Layout saved OK');
     }
     async function clearSavedLayout() { await DB.del('pinLayout'); showToast('Layout cleared'); }
@@ -2683,7 +2695,23 @@
       const raw = await DB.get('pinLayout'); if (!raw) return;
       try {
         const items = JSON.parse(raw);
-        items.forEach(item => {
+        for (const item of items) {
+          // If we have blob data, use spawnPinnedFromData for ALL types —
+          // it handles gif, image, model3d, etc. with correct textures and blobUrl.
+          if (item.blobBase64) {
+            try {
+              let blob = await (await fetch(item.blobBase64)).blob();
+              const ext = (item.title.split('.').pop() || '').toLowerCase();
+              const mimeMap = { glb: 'model/gltf-binary', gltf: 'model/gltf+json', fbx: 'application/octet-stream', gif: 'image/gif', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp' };
+              const mime = mimeMap[ext];
+              if (mime && blob.type !== mime) blob = new Blob([await blob.arrayBuffer()], { type: mime });
+              await spawnPinnedFromData(item, URL.createObjectURL(blob));
+            } catch (e) { console.warn('[rehydrate] blob spawn failed:', item.title, e); }
+            continue;
+          }
+          // No blob data — model3d can't be restored, skip it
+          if (item.type === 'model3d') continue;
+          // Other types: restore as placeholder mesh
           const tex = makePinnedDefaultTexture(item.title, item.type);
           const geo = new THREE.PlaneGeometry(item.w, item.h);
           const mat = new THREE.MeshStandardMaterial({ map: tex, emissive: 0x001122, emissiveIntensity: .15, roughness: .35, metalness: .1 });
@@ -2701,7 +2729,7 @@
           mesh.rotation.set(item.rx, item.ry, item.rz);
           staticHubGroup.add(mesh); // permanent - survives buildRoom calls
           globalPinnedWindows.push({ mesh, title: item.title, body: '', type: item.type, id: item.id, restored: true, blobUrl: null, videoEl: null });
-        });
+        }
       } catch (e) { console.warn('Layout rehydrate error:', e); }
     }
 
@@ -3935,6 +3963,10 @@
 
       if (pw.type === 'audio') {
         showPreview(pw.title, pw.body || `<div class="audio-player-card"><div class="ap-title">${escHtml(pw.title)}</div><div class="ap-controls"><button class="ap-ctrl main" onclick="GlobalPlayer.toggle()">${GlobalPlayer.isPlaying() ? '||' : '>'}</button><button class="ap-ctrl" onclick="GlobalPlayer.stop()">[]</button></div></div>`);
+      } else if (pw.type === 'image' && pw.blobUrl) {
+        showPreview(pw.title, `<img src="${pw.blobUrl}" alt="${escHtml(pw.title)}" style="max-width:100%;border-radius:6px">`);
+      } else if (pw.type === 'gif' && pw.blobUrl) {
+        showPreview(pw.title, `<img src="${pw.blobUrl}" alt="${escHtml(pw.title)}" style="max-width:100%;border-radius:6px" id="gif-preview-img">`);
       } else if (pw.type === 'video' && pw.blobUrl) {
         // Preview video plays with audio; wall video is muted texture-only
         const vel = pw.videoEl;
