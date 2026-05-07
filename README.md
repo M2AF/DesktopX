@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🌌 DesktopX
+# <img src="logo.png" alt="X" width="200" style="vertical-align: middle; margin-bottom: 8px;">
 
 **The Next-Generation 3D Spatial Operating Environment**
 
