@@ -4,6 +4,22 @@
 
 **The Next-Generation 3D Spatial Operating Environment**
 
+---
+
+<div align="center">
+
+**Access DesktopX via:**
+
+**https://desktopx.guildfordking.workers.dev/**
+
+**New domain coming shortly!**
+
+**https://www.desktopx.org/** 
+
+---
+
+</div>
+
 [![Live on Abstract](https://img.shields.io/badge/Abstract-Live%20Now-00FFA3?logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iYmxhY2siIGQ9Ik0xMiAyTDMgN3YxMGw5IDUgOS01VjdMMTIgMnptMCAyLjE4TDE5IDguMXY3LjhsLTcgMy45Mi03LTMuOTJWOC4xbDctMy45MnoiLz48L3N2Zz4=&logoColor=black)](https://portal.abs.xyz/stream/criptoejesus)
 [![Join Discord](https://img.shields.io/badge/Discord-Join%20Server-5865F2?logo=discord&logoColor=white)](https://discord.gg/VNEDCKtjua)
 [![Live on Kick](https://img.shields.io/badge/Kick-Live%20Now-53FC18?logo=kick&logoColor=black)](https://kick.com/criptoejesus)
