@@ -105,10 +105,11 @@ function createWindow() {
     backgroundColor: '#00000000',
     icon: path.join(APP_ROOT, 'favicon.ico'),
     webPreferences: {
-      preload:          path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration:  false,
-      webviewTag:       true,
+      preload:                    path.join(__dirname, 'preload.js'),
+      contextIsolation:           true,
+      nodeIntegration:            false,
+      webviewTag:                 true,
+      autoplayPolicy:             'no-user-gesture-required',
     },
   });
 
@@ -728,16 +729,26 @@ app.whenReady().then(() => {
       callback({ requestHeaders: details.requestHeaders });
     }
   );
-  // Strip X-Frame-Options so YouTube embeds are never blocked
+  // Strip X-Frame-Options AND Content-Security-Policy from YouTube so embeds play fully
   session.defaultSession.webRequest.onHeadersReceived(
-    { urls: ['https://www.youtube.com/embed/*', 'https://*.youtube.com/*'] },
+    { urls: ['https://www.youtube.com/*', 'https://*.youtube.com/*', 'https://*.ytimg.com/*', 'https://*.googlevideo.com/*'] },
     (details, callback) => {
       const h = details.responseHeaders;
       delete h['x-frame-options'];
       delete h['X-Frame-Options'];
+      delete h['content-security-policy'];
+      delete h['Content-Security-Policy'];
+      delete h['content-security-policy-report-only'];
+      delete h['Content-Security-Policy-Report-Only'];
       callback({ cancel: false, responseHeaders: h });
     }
   );
+
+  // Grant media permissions automatically so YouTube player can access what it needs
+  session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
+    const allowed = ['media', 'mediaKeySystem', 'geolocation', 'notifications', 'fullscreen'];
+    callback(allowed.includes(permission));
+  });
 
   startProxyServer();
   createWindow();
