@@ -10,11 +10,7 @@
 
 **Access DesktopX via:**
 
-**https://desktopx.guildfordking.workers.dev/**
-
-**New domain coming shortly!**
-
-**https://www.desktopx.org/** 
+**www.desktopx.org/** 
 
 ---
 
