@@ -9,7 +9,7 @@
   "scripts": {
     "start":       "electron .",
     "build:win":   "electron-builder --win --x64",
-    "build:mac":   "electron-builder --mac --publish=never",
+    "build:mac":   "electron-builder --mac",
     "build:linux": "electron-builder --linux --x64"
   },
   "dependencies": {},
@@ -28,7 +28,7 @@
     "files": [
       "main.js",
       "preload.js",
-      "app"
+      "app/**/*"
     ],
     "win": {
       "target": [
@@ -52,17 +52,15 @@
       "target": [
         { "target": "dmg", "arch": ["x64", "arm64"] }
       ],
-      "icon": "app/app.png",
+      "icon": "app/logo.png",
       "category": "public.app-category.entertainment",
-      "darkModeSupport": true,
-      "sign": false,
-      "notarize": false,
-      "identity": null,
-      "certificateFile": null,
-      "certificatePassword": null
+      "darkModeSupport": true
     },
     "linux": {
-      "target": ["AppImage"],
+      "target": [
+        { "target": "AppImage", "arch": ["x64"] }
+      ],
+      "icon": "app/logo.png",
       "category": "Game"
     }
   }

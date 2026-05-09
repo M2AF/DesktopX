@@ -19,6 +19,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Steam
   getSteamLibrary: ()        => ipcRenderer.invoke('steam:getLibrary'),
   launchSteamGame: (appId)   => ipcRenderer.invoke('steam:launchGame', appId),
+  // Save (userData path — writable in packaged builds)
+  saveRead:        ()        => ipcRenderer.invoke('save:read'),
+  saveWrite:       (content) => ipcRenderer.invoke('save:write', content),
   // Environment
   isElectron: true,
   platform:   process.platform,

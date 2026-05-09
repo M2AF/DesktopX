@@ -14,9 +14,10 @@ const IS_DEV    = !app.isPackaged;
 const APP_ROOT  = path.join(__dirname, 'app');
 const PROXY_PORT = 3334;
 
-let mainWindow = null;
-let tray       = null;
+let mainWindow  = null;
+let tray        = null;
 let proxyServer = null;
+let SAVE_PATH   = null; // resolved after app is ready (userData folder)
 
 // ── YouTube + Local-file proxy server ────────────────────────────────────────
 function startProxyServer() {
@@ -99,7 +100,9 @@ function createWindow() {
     width:  1600, height: 900,
     minWidth: 800, minHeight: 600,
     frame: false,
-    backgroundColor: '#000000',
+    // transparent: true allows PNG alpha channels to render correctly (logo fix)
+    transparent: true,
+    backgroundColor: '#00000000',
     icon: path.join(APP_ROOT, 'favicon.ico'),
     webPreferences: {
       preload:          path.join(__dirname, 'preload.js'),
@@ -113,9 +116,60 @@ function createWindow() {
   if (IS_DEV) mainWindow.webContents.openDevTools({ mode: 'detach' });
 
   mainWindow.webContents.on('did-finish-load', () => {
-    mainWindow.webContents.executeJavaScript(
-      `window.ELECTRON_PROXY_PORT=${PROXY_PORT}; window.ELECTRON_MODE=true;`
-    );
+    mainWindow.webContents.executeJavaScript(`
+      window.ELECTRON_PROXY_PORT = ${PROXY_PORT};
+      window.ELECTRON_MODE = true;
+      window.DESKTOPX_SAVE_PATH = ${JSON.stringify(SAVE_PATH)};
+
+      // ── Window controls injected directly from main process ──────────────
+      // This guarantees controls appear even if electron-bridge.js doesn't load.
+      (function injectWindowControls() {
+        if (document.getElementById('__edx-bar')) return; // already injected by bridge
+
+        // Drag region — covers topbar but leaves right side free for buttons
+        const drag = document.createElement('div');
+        drag.id = '__edx-drag';
+        drag.style.cssText = [
+          'position:fixed', 'top:0', 'left:0', 'right:90px', 'height:30px',
+          '-webkit-app-region:drag', 'z-index:2147483646', 'pointer-events:none'
+        ].join(';');
+        document.body.appendChild(drag);
+
+        // Button bar
+        const bar = document.createElement('div');
+        bar.id = '__edx-bar';
+        bar.style.cssText = [
+          'position:fixed', 'top:4px', 'right:6px',
+          'display:flex', 'gap:3px', 'z-index:2147483647',
+          '-webkit-app-region:no-drag'
+        ].join(';');
+
+        const btns = [
+          { label:'—', title:'Minimize', action: () => window.electronAPI?.minimize(), hover:'rgba(255,255,255,0.22)' },
+          { label:'⬜', title:'Maximize', action: () => window.electronAPI?.maximize(), hover:'rgba(255,255,255,0.22)' },
+          { label:'✕', title:'Close',    action: () => window.electronAPI?.close(),    hover:'rgba(210,35,35,0.9)'   },
+        ];
+
+        btns.forEach(({ label, title, action, hover }) => {
+          const b = document.createElement('button');
+          b.textContent = label;
+          b.title = title;
+          b.style.cssText = [
+            'width:26px', 'height:20px', 'border:none', 'border-radius:3px',
+            'background:rgba(255,255,255,0.07)', 'color:rgba(255,255,255,0.78)',
+            'font-size:10px', 'cursor:pointer', 'transition:background 0.1s',
+            '-webkit-app-region:no-drag'
+          ].join(';');
+          b.addEventListener('mouseenter', () => b.style.background = hover);
+          b.addEventListener('mouseleave', () => b.style.background = 'rgba(255,255,255,0.07)');
+          b.addEventListener('click', action);
+          bar.appendChild(b);
+        });
+
+        document.body.appendChild(bar);
+        console.log('[DesktopX] Window controls injected ✓');
+      })();
+    `);
   });
 
   mainWindow.on('closed', () => { mainWindow = null; });
@@ -177,6 +231,22 @@ ipcMain.handle('fs:readText', async (_e, filePath) => {
   catch (e) { return { error: e.message }; }
 });
 ipcMain.handle('shell:showItemInFolder', (_e, filePath) => shell.showItemInFolder(filePath));
+
+// ── IPC: Save file (userData — survives updates, writable in packaged builds) ─
+ipcMain.handle('save:read', async () => {
+  try {
+    if (!SAVE_PATH) return null;
+    return fs.existsSync(SAVE_PATH) ? fs.readFileSync(SAVE_PATH, 'utf-8') : null;
+  } catch (e) { return { error: e.message }; }
+});
+ipcMain.handle('save:write', async (_e, content) => {
+  try {
+    if (!SAVE_PATH) return { error: 'Save path not ready.' };
+    fs.mkdirSync(path.dirname(SAVE_PATH), { recursive: true });
+    fs.writeFileSync(SAVE_PATH, content, 'utf-8');
+    return { success: true };
+  } catch (e) { return { error: e.message }; }
+});
 
 // ── IPC: Steam library scanner ────────────────────────────────────────────────
 ipcMain.handle('steam:getLibrary', async () => {
@@ -273,7 +343,19 @@ ipcMain.on('window:close',    () => { app.isQuiting = true; mainWindow?.close();
 
 // ── App lifecycle ────────────────────────────────────────────────────────────
 app.whenReady().then(() => {
-  // ── YouTube API referer spoof ───────────────────────────────────────────────
+  // ── Save path — writable userData folder (safe in packaged builds) ────────
+  SAVE_PATH = path.join(app.getPath('userData'), 'save.json');
+  // One-time migration: copy save.json from app/ folder if it exists and userData doesn't yet
+  const legacySave = path.join(APP_ROOT, 'save.json');
+  if (!fs.existsSync(SAVE_PATH) && fs.existsSync(legacySave)) {
+    try {
+      fs.mkdirSync(path.dirname(SAVE_PATH), { recursive: true });
+      fs.copyFileSync(legacySave, SAVE_PATH);
+      if (IS_DEV) console.log('[DesktopX] Migrated save.json →', SAVE_PATH);
+    } catch (e) { console.warn('[DesktopX] Save migration failed:', e.message); }
+  }
+
+  // ── YouTube API referer spoof ─────────────────────────────────────────────
   // Injects the authorized origin so your locked API key is always accepted.
   // Change AUTHORIZED_ORIGIN to match the domain you registered in Google Console.
   const AUTHORIZED_ORIGIN = 'https://desktopx.org';
