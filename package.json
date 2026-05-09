@@ -7,20 +7,22 @@
   "license": "MIT",
   "private": true,
   "scripts": {
-    "start":       "electron .",
-    "build:win":   "electron-builder --win --x64",
-    "build:mac":   "electron-builder --mac",
-    "build:linux": "electron-builder --linux --x64"
+    "start": "electron .",
+    "build:win": "electron-builder --win --x64",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux --x64",
+    "deploy": "wrangler deploy",
+    "preview": "wrangler dev"
   },
-  "dependencies": {},
   "devDependencies": {
-    "electron":         "^30.0.0",
-    "electron-builder": "^24.13.3"
+    "electron": "^30.0.0",
+    "electron-builder": "^24.13.3",
+    "wrangler": "^4.90.0"
   },
   "build": {
-    "appId":       "com.desktopx.app",
+    "appId": "com.desktopx.app",
     "productName": "DesktopX",
-    "copyright":   "Copyright © 2025 criptoejesus",
+    "copyright": "Copyright © 2025 criptoejesus",
     "directories": {
       "output": "dist",
       "buildResources": "assets"
@@ -32,8 +34,18 @@
     ],
     "win": {
       "target": [
-        { "target": "nsis",     "arch": ["x64"] },
-        { "target": "portable", "arch": ["x64"] }
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "icon": "app/favicon.ico",
       "requestedExecutionLevel": "asInvoker"
@@ -50,7 +62,13 @@
     },
     "mac": {
       "target": [
-        { "target": "dmg", "arch": ["x64", "arm64"] }
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
       ],
       "icon": "app/logo.png",
       "category": "public.app-category.entertainment",
@@ -58,7 +76,12 @@
     },
     "linux": {
       "target": [
-        { "target": "AppImage", "arch": ["x64"] }
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "icon": "app/logo.png",
       "category": "Game"
