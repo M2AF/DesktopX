@@ -1250,9 +1250,16 @@
       margin-bottom: 8px
     }
 
+    .steam-web-helper-warn {
+      color: rgba(255, 190, 95, 0.78);
+      font-size: 9px;
+      line-height: 1.45;
+      margin-bottom: 8px
+    }
+
     .steam-web-path-row {
       display: grid;
-      grid-template-columns: 54px minmax(0, 1fr) auto auto;
+      grid-template-columns: 54px minmax(0, 1fr) 72px auto auto;
       align-items: center;
       gap: 6px;
       padding: 5px 0;
@@ -1276,6 +1283,13 @@
       overflow: hidden;
       text-overflow: ellipsis;
       user-select: text
+    }
+    .steam-web-path-note {
+      color: rgba(255, 190, 95, 0.72);
+      font-size: 8px;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      white-space: nowrap
     }
 
     .steam-web-path-copy,
@@ -2534,12 +2548,13 @@
         <button class="steam-provider-tab" data-provider="gog" onclick="setGameProvider('gog')">GOG</button>
         <button class="steam-provider-tab" data-provider="epic" onclick="setGameProvider('epic')">Epic</button>
       </div>
-      <button id="steam-modal-import" onclick="importWebGameFolders(true)" title="Pick browser game folders">Folders</button>
+      <button id="steam-modal-import" onclick="showWebGameFolderGuide()" title="Show default game folder paths">Folders</button>
       <button id="steam-modal-refresh" onclick="refreshSteamLibrary()">↺ Refresh</button>
     </div>
     <div id="steam-modal-body">
       <div id="steam-web-path-helper">
-        <div class="steam-web-helper-head">Web mode cannot auto-read default install folders. Copy a path, paste it into the folder picker address bar, then approve that folder.</div>
+        <div class="steam-web-helper-head">Web mode cannot auto-read folders until you approve them. Copy a path, paste it into the folder picker address bar, then approve that folder.</div>
+        <div class="steam-web-helper-warn">If the browser says the folder contains system files, choose a non-protected game library instead, or try a specific game folder where supported.</div>
         <div id="steam-web-path-list"></div>
       </div>
       <div id="steam-modal-status">Electron scans automatically. Web mode uses selected folders and browser-safe launch links.</div>
@@ -6733,6 +6748,7 @@
         <div class="steam-web-path-row">
           <div class="steam-web-path-store">${escHtml(info.label)}</div>
           <div class="steam-web-path-text" title="${escHtml(info.hint)}">${escHtml(info.path)}</div>
+          <div class="steam-web-path-note" title="${escHtml(info.hint)}">${escHtml(info.note || '')}</div>
           <button class="steam-web-path-copy" onclick="copyWebGamePath('${provider}')">Copy</button>
           <button class="steam-web-path-pick" onclick="pickSingleWebGameFolder('${provider}')">Pick</button>
         </div>`).join('');
@@ -6857,6 +6873,16 @@
         if (status) { status.style.display = 'block'; status.textContent = e?.message || String(e); }
         showToast(e?.message || String(e));
       }
+    }
+    function showWebGameFolderGuide() {
+      updateGameModeControls();
+      renderWebGamePathHelper();
+      const status = $('steam-modal-status');
+      if (status) {
+        status.style.display = 'block';
+        status.textContent = 'Copy a path, paste it into the folder picker, then approve it. If Windows blocks Program Files, pick a custom library or specific game folder.';
+      }
+      showToast('Copy a path, then click Pick for that store');
     }
 
     function filterSteamGames(query) {
@@ -7065,18 +7091,7 @@
     async function pickWebGameFolders(existing = {}) {
       const picks = { ...existing };
       renderWebGamePathHelper();
-      alert('DesktopX Web will ask for game folders one store at a time. Before each picker, use the Copy button beside that store path, then paste it into the folder picker address bar. Cancel any store you do not use.');
-      for (const provider of ['steam', 'xbox', 'gog', 'epic']) {
-        const info = WEB_GAME_DEFAULT_PATHS[provider];
-        if (!confirm(`${info.label} folder\n\nDefault path:\n${info.path}\n\nTip: copy this path from the Games window before opening the picker, then paste it into the folder picker's address bar.\n\nOpen picker now?`)) continue;
-        try {
-          const handle = await window.showDirectoryPicker({ id: `desktopx-${provider}-library`, mode: 'read' });
-          if (handle && await ensureReadPermission(handle)) picks[provider] = handle;
-        } catch (e) {
-          if (e?.name !== 'AbortError') console.warn('Game folder pick failed:', provider, e);
-        }
-      }
-      await DB.set(WEB_GAME_HANDLES_KEY, picks);
+      showWebGameFolderGuide();
       return picks;
     }
 
@@ -7162,7 +7177,27 @@
           } catch { /* skip malformed item */ }
         }
       }
+
+      if (!games.length) {
+        const rootGame = await scanEpicInstallDir(root, root.name);
+        if (rootGame) games.push(rootGame);
+        for (const [name, handle] of await entriesArray(root)) {
+          if (handle.kind !== 'directory') continue;
+          const game = await scanEpicInstallDir(handle, name);
+          if (game) games.push(game);
+        }
+      }
       return uniqueGameCards(games);
+    }
+
+    async function scanEpicInstallDir(dir, fallbackName) {
+      const egstore = await getDirIfExists(dir, '.egstore');
+      if (!egstore) return null;
+      const name = fallbackName || dir.name || 'Epic Game';
+      return normalizeGameCard({
+        provider: 'epic', providerLabel: 'Epic', id: name, name,
+        launchType: 'epic-folder-fallback', launchTarget: { appName: name }
+      });
     }
 
     function parseXboxConfigName(config, fallback) {
@@ -7227,6 +7262,7 @@
     window.closeSteamModal = closeSteamModal;
     window.refreshSteamLibrary = refreshSteamLibrary;
     window.importWebGameFolders = importWebGameFolders;
+    window.showWebGameFolderGuide = showWebGameFolderGuide;
     window.copyWebGamePath = copyWebGamePath;
     window.pickSingleWebGameFolder = pickSingleWebGameFolder;
     window.filterSteamGames = filterSteamGames;
