@@ -16,9 +16,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
   minimize:       ()         => ipcRenderer.send('window:minimize'),
   maximize:       ()         => ipcRenderer.send('window:maximize'),
   close:          ()         => ipcRenderer.send('window:close'),
-  // Steam
+  // Game libraries
+  getGameLibraries: ()       => ipcRenderer.invoke('games:getLibraries'),
+  launchGame:      (game)    => ipcRenderer.invoke('games:launch', game),
+  // Store-specific fallbacks
   getSteamLibrary: ()        => ipcRenderer.invoke('steam:getLibrary'),
   launchSteamGame: (appId)   => ipcRenderer.invoke('steam:launchGame', appId),
+  getXboxLibrary:  ()        => ipcRenderer.invoke('xbox:getLibrary'),
+  launchXboxGame:  (aumid)   => ipcRenderer.invoke('xbox:launchGame', aumid),
+  getGogLibrary:   ()        => ipcRenderer.invoke('gog:getLibrary'),
+  launchGogGame:   (target)  => ipcRenderer.invoke('gog:launchGame', target),
+  getEpicLibrary:  ()        => ipcRenderer.invoke('epic:getLibrary'),
+  launchEpicGame:  (target)  => ipcRenderer.invoke('epic:launchGame', target),
   // Save (userData path — writable in packaged builds)
   saveRead:        ()        => ipcRenderer.invoke('save:read'),
   saveWrite:       (content) => ipcRenderer.invoke('save:write', content),

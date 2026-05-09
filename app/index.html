@@ -1130,6 +1130,252 @@
       background: rgba(200, 130, 0, 0.28)
     }
 
+    /* -- STEAM MODAL -- */
+    #steam-modal {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: min(860px, 94vw);
+      max-height: 84vh;
+      background: rgba(2, 10, 22, 0.98);
+      border: 1px solid rgba(0, 180, 80, 0.35);
+      border-radius: 12px;
+      z-index: 410;
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+      backdrop-filter: blur(14px);
+      box-shadow: 0 8px 40px rgba(0,0,0,0.8), 0 0 30px rgba(0,180,80,0.08)
+    }
+
+    #steam-modal-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba(0, 160, 70, 0.2);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: move;
+      flex-shrink: 0;
+      background: rgba(0, 20, 8, 0.5)
+    }
+
+    #steam-modal-title {
+      color: #44ee88;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: .1em;
+      flex: 1
+    }
+
+    #steam-modal-count {
+      color: rgba(0, 200, 80, 0.45);
+      font-size: 10px;
+      font-family: monospace
+    }
+
+    #steam-modal-close {
+      background: rgba(255, 60, 60, 0.18);
+      border: 1px solid rgba(255, 60, 60, 0.28);
+      color: #f88;
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0
+    }
+
+    #steam-modal-close:hover { background: rgba(255,60,60,0.38) }
+
+    #steam-modal-search {
+      background: rgba(0, 30, 12, 0.7);
+      border: 1px solid rgba(0, 160, 60, 0.28);
+      color: #88ffbb;
+      padding: 7px 12px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-family: 'Segoe UI', sans-serif;
+      outline: none;
+      width: 100%;
+      transition: border-color .2s
+    }
+
+    #steam-modal-search:focus { border-color: rgba(0,200,80,0.55) }
+    #steam-modal-search::placeholder { color: rgba(0,180,70,0.35) }
+
+    #steam-modal-toolbar {
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid rgba(0,160,60,0.1);
+      flex-shrink: 0
+    }
+
+    #steam-modal-refresh {
+      background: rgba(0, 160, 60, 0.12);
+      border: 1px solid rgba(0, 160, 60, 0.3);
+      color: #44dd88;
+      padding: 6px 12px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 10px;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: background .14s
+    }
+
+    #steam-modal-refresh:hover { background: rgba(0,160,60,0.25) }
+    #steam-provider-tabs {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      flex-shrink: 0
+    }
+
+    .steam-provider-tab {
+      background: rgba(0, 120, 60, 0.08);
+      border: 1px solid rgba(0, 160, 70, 0.22);
+      color: rgba(120, 255, 180, 0.72);
+      padding: 6px 9px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 9px;
+      letter-spacing: .05em;
+      white-space: nowrap;
+      transition: background .14s, border-color .14s, color .14s
+    }
+
+    .steam-provider-tab:hover,
+    .steam-provider-tab.active {
+      background: rgba(0, 180, 70, 0.18);
+      border-color: rgba(0, 220, 90, 0.42);
+      color: #55ff99
+    }
+
+    #steam-modal-body {
+      padding: 14px;
+      overflow-y: auto;
+      flex: 1
+    }
+
+    #steam-modal-body::-webkit-scrollbar { width: 4px }
+    #steam-modal-body::-webkit-scrollbar-track { background: transparent }
+    #steam-modal-body::-webkit-scrollbar-thumb { background: rgba(0,160,60,0.25); border-radius: 2px }
+
+    #steam-game-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 12px
+    }
+
+    .steam-game-card {
+      border-radius: 8px;
+      overflow: hidden;
+      background: rgba(0, 12, 6, 0.7);
+      border: 1px solid rgba(0, 160, 60, 0.15);
+      cursor: pointer;
+      transition: transform .15s, border-color .15s, box-shadow .15s
+    }
+
+    .steam-game-card:hover {
+      transform: scale(1.05);
+      border-color: rgba(0, 220, 80, 0.6);
+      box-shadow: 0 0 18px rgba(0, 180, 60, 0.22)
+    }
+    .steam-game-card.provider-xbox { border-color: rgba(0, 140, 255, 0.22) }
+    .steam-game-card.provider-gog { border-color: rgba(160, 90, 255, 0.22) }
+    .steam-game-card.provider-epic { border-color: rgba(255, 255, 255, 0.16) }
+
+    .steam-provider-badge {
+      display: inline-block;
+      color: rgba(180, 255, 210, 0.74);
+      background: rgba(0, 180, 70, 0.12);
+      border: 1px solid rgba(0, 200, 80, 0.25);
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-size: 8px;
+      letter-spacing: .08em;
+      margin-bottom: 5px;
+      text-transform: uppercase
+    }
+
+    .provider-xbox .steam-provider-badge { color: #88ccff; background: rgba(0, 120, 255, 0.12); border-color: rgba(0, 140, 255, 0.28) }
+    .provider-gog .steam-provider-badge { color: #d8bbff; background: rgba(120, 70, 255, 0.12); border-color: rgba(150, 100, 255, 0.28) }
+    .provider-epic .steam-provider-badge { color: #e6e6e6; background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.18) }
+
+    .steam-game-art {
+      width: 100%;
+      display: block;
+      aspect-ratio: 2/3;
+      object-fit: cover;
+      background: rgba(0, 20, 10, 0.9)
+    }
+    .steam-game-art-placeholder {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: rgba(80, 255, 150, 0.54);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      min-height: 210px;
+      background: linear-gradient(160deg, rgba(0, 35, 16, 0.95), rgba(0, 6, 18, 0.98))
+    }
+
+    .provider-xbox .steam-game-art-placeholder { color: rgba(120, 205, 255, 0.58); background: linear-gradient(160deg, rgba(0, 30, 70, 0.95), rgba(0, 6, 18, 0.98)) }
+    .provider-gog .steam-game-art-placeholder { color: rgba(210, 180, 255, 0.62); background: linear-gradient(160deg, rgba(48, 20, 90, 0.95), rgba(0, 6, 18, 0.98)) }
+    .provider-epic .steam-game-art-placeholder { color: rgba(235, 235, 235, 0.6); background: linear-gradient(160deg, rgba(45, 45, 48, 0.95), rgba(0, 6, 18, 0.98)) }
+
+    .steam-game-info {
+      padding: 6px 8px 8px
+    }
+
+    .steam-game-name {
+      font-size: 10px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: #88ddaa;
+      margin-bottom: 2px;
+      letter-spacing: .02em
+    }
+
+    .steam-game-size {
+      font-size: 9px;
+      color: rgba(0, 180, 70, 0.38);
+      margin-bottom: 6px
+    }
+
+    .steam-play-btn {
+      width: 100%;
+      background: rgba(0, 180, 60, 0.18);
+      border: 1px solid rgba(0, 200, 70, 0.35);
+      color: #33ee88;
+      padding: 4px 0;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 10px;
+      letter-spacing: .05em;
+      transition: background .12s;
+      font-family: 'Segoe UI', sans-serif
+    }
+
+    .steam-play-btn:hover { background: rgba(0,190,70,0.32) }
+
+    #steam-modal-status {
+      text-align: center;
+      padding: 50px 20px;
+      color: rgba(0, 180, 70, 0.45);
+      font-size: 12px;
+      letter-spacing: .06em
+    }
+
     /* -- NFT MODAL -- */
     #nft-modal {
       position: fixed;
@@ -2048,6 +2294,7 @@
       <div class="sm-item" onclick="openFolder();toggleStartMenu()"><span class="sm-ico">📁</span>Open Folder</div>
       <div class="sm-item" onclick="openURLDialog();toggleStartMenu()"><span class="sm-ico">🌐</span>Web Player</div>
       <div class="sm-item" onclick="openNFTModal();toggleStartMenu()"><span class="sm-ico">⬡</span>ChainLens NFT</div>
+      <div class="sm-item" onclick="openSteamModal();toggleStartMenu()"><span class="sm-ico">🎮</span>Games Library</div>
       <div class="sm-sep"></div>
       <div class="sm-item" onclick="toggleTheatreMode();toggleStartMenu()"><span class="sm-ico">🎬</span>Theatre Mode
       </div>
@@ -2067,6 +2314,7 @@
       <img src="logo.png" alt="Logo" style="height: 20px; width: auto; display: block; object-fit: contain;">
     </div>
     <button class="tb tb-hub on" id="btn-hub" onclick="goRoom('home')">Home</button>
+    <button class="tb" onclick="openSteamModal()" style="color:#44ee88;border-color:rgba(0,180,60,0.3)" title="Games Library">🎮 Games</button>
     <button class="tb" onclick="openFolder()" style="color:#44ccff;border-color:rgba(0,180,255,0.25)">📁 Open
       Folder</button>
     <button class="tb tb-web" onclick="openURLDialog()">🌐 Web Player</button>
@@ -2205,6 +2453,30 @@
       <div id="nft-grid-container">
         <div class="nft-status">Enter wallet and API key then click Scan</div>
       </div>
+    </div>
+  </div>
+
+  <!-- Games Library Modal (draggable) -->
+  <div id="steam-modal">
+    <div id="steam-modal-header">
+      <span id="steam-modal-title">🎮 Games Library</span>
+      <span id="steam-modal-count"></span>
+      <span id="steam-modal-close" onclick="closeSteamModal()">✕</span>
+    </div>
+    <div id="steam-modal-toolbar">
+      <input id="steam-modal-search" type="text" placeholder="Search games…" oninput="filterSteamGames(this.value)">
+      <div id="steam-provider-tabs">
+        <button class="steam-provider-tab active" data-provider="all" onclick="setGameProvider('all')">All</button>
+        <button class="steam-provider-tab" data-provider="steam" onclick="setGameProvider('steam')">Steam</button>
+        <button class="steam-provider-tab" data-provider="xbox" onclick="setGameProvider('xbox')">Xbox</button>
+        <button class="steam-provider-tab" data-provider="gog" onclick="setGameProvider('gog')">GOG</button>
+        <button class="steam-provider-tab" data-provider="epic" onclick="setGameProvider('epic')">Epic</button>
+      </div>
+      <button id="steam-modal-refresh" onclick="refreshSteamLibrary()">↺ Refresh</button>
+    </div>
+    <div id="steam-modal-body">
+      <div id="steam-modal-status">Click Refresh to scan Steam, Xbox, GOG, and Epic.</div>
+      <div id="steam-game-grid" style="display:none"></div>
     </div>
   </div>
 
@@ -2825,6 +3097,27 @@
         pdf: () => { cx.fillStyle = '#540808'; cx.fillRect(16, 30, 96, 80); cx.fillStyle = '#ff3333'; cx.font = 'bold 22px sans-serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText('PDF', 64, 70); },
         back: () => { cx.fillStyle = '#001430'; cx.fillRect(16, 30, 96, 80); cx.fillStyle = '#3399ff'; cx.font = 'bold 38px sans-serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText('', 64, 70); cx.strokeStyle = 'rgba(0,120,255,0.5)'; cx.lineWidth = 2; cx.strokeRect(16, 30, 96, 80); },
         chainlens: () => { cx.fillStyle = '#0e0020'; cx.fillRect(16, 30, 96, 80); const g = cx.createLinearGradient(16, 30, 112, 110); g.addColorStop(0, '#8800ff'); g.addColorStop(1, '#ff00aa'); cx.strokeStyle = g; cx.lineWidth = 3; cx.beginPath(); cx.moveTo(64, 36); cx.lineTo(102, 60); cx.lineTo(102, 86); cx.lineTo(64, 110); cx.lineTo(26, 86); cx.lineTo(26, 60); cx.closePath(); cx.stroke(); cx.fillStyle = '#cc44ff'; cx.font = 'bold 15px monospace'; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText('NFT', 64, 72); },
+        steam: () => {
+          cx.fillStyle = '#071a0e'; cx.fillRect(16, 30, 96, 80);
+          // Steam-style cloud/controller icon
+          const g = cx.createRadialGradient(64, 68, 4, 64, 68, 38);
+          g.addColorStop(0, '#44ee88'); g.addColorStop(1, '#006622');
+          cx.fillStyle = g;
+          // Controller body
+          cx.beginPath(); cx.ellipse(64, 72, 30, 20, 0, 0, Math.PI * 2); cx.fill();
+          cx.fillStyle = '#071a0e';
+          // D-pad left nub
+          cx.beginPath(); cx.ellipse(50, 72, 8, 5, 0, 0, Math.PI * 2); cx.fill();
+          // Buttons right nub
+          cx.beginPath(); cx.ellipse(78, 72, 8, 5, 0, 0, Math.PI * 2); cx.fill();
+          // Grips
+          cx.fillStyle = g;
+          cx.beginPath(); cx.ellipse(46, 84, 10, 7, -0.3, 0, Math.PI * 2); cx.fill();
+          cx.beginPath(); cx.ellipse(82, 84, 10, 7, 0.3, 0, Math.PI * 2); cx.fill();
+          // Center circle
+          cx.fillStyle = 'rgba(0,255,100,0.5)';
+          cx.beginPath(); cx.arc(64, 68, 6, 0, Math.PI * 2); cx.fill();
+        },
         model3d: () => { cx.fillStyle = '#001820'; cx.fillRect(16, 30, 96, 80); cx.strokeStyle = '#00eeff'; cx.lineWidth = 1.5; const mx = 64, my = 70, s = 24; const pts = [[mx, my - s], [mx + s * .87, my + s * .5], [mx - s * .87, my + s * .5], [mx, my + s * 1.2]]; cx.beginPath();[[0, 1], [0, 2], [0, 3], [1, 2], [1, 3], [2, 3]].forEach(([a, b]) => { cx.moveTo(pts[a][0], pts[a][1]); cx.lineTo(pts[b][0], pts[b][1]); }); cx.stroke(); cx.fillStyle = 'rgba(0,200,255,0.15)'; cx.beginPath(); cx.moveTo(pts[0][0], pts[0][1]); cx.lineTo(pts[1][0], pts[1][1]); cx.lineTo(pts[2][0], pts[2][1]); cx.closePath(); cx.fill(); },
         default: () => { cx.fillStyle = '#141a2c'; cx.fillRect(16, 30, 96, 80); cx.fillStyle = '#556688'; cx.font = 'bold 38px sans-serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText('?', 64, 70); }
       };
@@ -2851,9 +3144,8 @@
         grid: 0x001844,
         accent: 0x0066ff,
         portals: [],
-        icons: ['Downloads', 'Documents', 'ChainLens', 'Music', 'Photos', 'Videos', 'Notepad', 'Web Player', 'Settings'],
-        // Changed the last type to 'settings'
-        iconTypes: ['folder', 'folder', 'chainlens', 'audio', 'photo', 'video', 'text', 'exe', 'settings'],
+        icons: ['Downloads', 'Documents', 'ChainLens', 'Music', 'Photos', 'Videos', 'Notepad', 'Web Player', 'Games Library', 'Settings'],
+        iconTypes: ['folder', 'folder', 'chainlens', 'audio', 'photo', 'video', 'text', 'exe', 'steam', 'settings'],
         iconWall: 'front'
       }
     };
@@ -3330,6 +3622,8 @@
     (() => { let dr = false, ox = 0, oy = 0; const h = $('preview-header'), pv = $('preview'); h.addEventListener('mousedown', e => { dr = true; const r = pv.getBoundingClientRect(); ox = e.clientX - r.left; oy = e.clientY - r.top; pv.style.transform = 'none'; pv.style.left = r.left + 'px'; pv.style.top = r.top + 'px'; e.preventDefault(); }); document.addEventListener('mousemove', e => { if (!dr) return; pv.style.left = (e.clientX - ox) + 'px'; pv.style.top = (e.clientY - oy) + 'px'; }); document.addEventListener('mouseup', () => dr = false); })();
     // Draggable NFT modal
     (() => { let dr = false, ox = 0, oy = 0; const h = $('nft-modal-header'), m = $('nft-modal'); h.addEventListener('mousedown', e => { dr = true; const r = m.getBoundingClientRect(); ox = e.clientX - r.left; oy = e.clientY - r.top; m.style.transform = 'none'; m.style.left = r.left + 'px'; m.style.top = r.top + 'px'; e.preventDefault(); }); document.addEventListener('mousemove', e => { if (!dr) return; m.style.left = (e.clientX - ox) + 'px'; m.style.top = (e.clientY - oy) + 'px'; }); document.addEventListener('mouseup', () => dr = false); })();
+    // Draggable Steam modal
+    (() => { let dr = false, ox = 0, oy = 0; const h = $('steam-modal-header'), m = $('steam-modal'); if (!h || !m) return; h.addEventListener('mousedown', e => { dr = true; const r = m.getBoundingClientRect(); ox = e.clientX - r.left; oy = e.clientY - r.top; m.style.transform = 'none'; m.style.left = r.left + 'px'; m.style.top = r.top + 'px'; e.preventDefault(); }); document.addEventListener('mousemove', e => { if (!dr) return; m.style.left = (e.clientX - ox) + 'px'; m.style.top = (e.clientY - oy) + 'px'; }); document.addEventListener('mouseup', () => dr = false); })();
     // Draggable webpanel
     (() => { let dr = false, ox = 0, oy = 0; const h = $('webpanel-header'), w = $('webpanel-overlay'); h.addEventListener('mousedown', e => { dr = true; const r = w.getBoundingClientRect(); ox = e.clientX - r.left; oy = e.clientY - r.top; w.style.transform = 'none'; w.style.left = r.left + 'px'; w.style.top = r.top + 'px'; e.preventDefault(); }); document.addEventListener('mousemove', e => { if (!dr) return; w.style.left = (e.clientX - ox) + 'px'; w.style.top = (e.clientY - oy) + 'px'; }); document.addEventListener('mouseup', () => dr = false); })();
 
@@ -4341,6 +4635,7 @@
     // NFT
     // ===============================================================
     function openNFTScanner() { $('nft-modal').style.display = 'flex'; unlockPointerNow(); setDesktopMode(true); $('nft-api-key').value = localStorage.getItem('3dna_alchemy_key') || ''; $('nft-wallet').value = localStorage.getItem('3dna_wallet_addr') || ''; }
+    function openNFTModal() { openNFTScanner(); }
     function closeNFTModal() { $('nft-modal').style.display = 'none'; }
     async function fetchNFTs() {
       const ak = $('nft-api-key').value.trim(), wa = $('nft-wallet').value.trim();
@@ -4407,6 +4702,8 @@
         '\u2715 Close': dismissFileIcons,
         'ChainLens': openNFTScanner,
         'Web Player': openURLDialog,
+        'Steam Library': openSteamModal,
+        'Games Library': openSteamModal,
         'Notepad': () => spawnWebPanel('https://codepad.co/', 'Notepad'),
         'Terminal': () => showToast('Use your OS terminal - 3DNA cannot exec local processes.'),
         'Now Playing': () => { const t = GlobalPlayer.getTrack(); if (t) reopenPinnedWindow({ userData: { isPinned: false } }); else showToast('No track loaded - browse a music folder.'); },
@@ -4762,7 +5059,7 @@
     });
 
     canvas.addEventListener('click', e => {
-      if ($('preview').style.display === 'flex' || $('nft-modal').style.display === 'flex' || $('url-dialog').style.display === 'block') return;
+      if ($('preview').style.display === 'flex' || $('nft-modal').style.display === 'flex' || $('steam-modal').style.display === 'flex' || $('url-dialog').style.display === 'block') return;
       if (!desktopMode && !isLocked) { if (getRaycastTarget()) return; tryLockPointer(); }
     });
 
@@ -4920,9 +5217,9 @@
       if (e.code === 'Escape') {
         if (forgeDrag) { exitForgeDrag(false); return; }
         if (custMode) { exitSpatialMode(); return; }
-        closePreview(); closeNFTModal(); closeURLDialog(); closeWebPanel(); unlockPointerNow();
+        closePreview(); closeNFTModal(); closeSteamModal(); closeURLDialog(); closeWebPanel(); unlockPointerNow();
       }
-      if (e.code === 'Space' && !$('preview').offsetParent && !$('url-dialog').offsetParent) { e.preventDefault(); GlobalPlayer.toggle(); }
+      if (e.code === 'Space' && !$('preview').offsetParent && !$('nft-modal').offsetParent && !$('steam-modal').offsetParent && !$('url-dialog').offsetParent) { e.preventDefault(); GlobalPlayer.toggle(); }
     });
     document.addEventListener('keyup', e => keys[e.code] = false);
 
@@ -5048,6 +5345,7 @@
           else if (o.userData.isBack) tipEl.textContent = ' Go Up (Back)';
           else if (o.userData.isPinned) tipEl.textContent = 'Hold LMB = Forge-grab  Ctrl+Scroll = resize  Click = reopen / unpin';
           else if (o.userData.name === 'ChainLens') tipEl.textContent = 'Click: ChainLens NFT Scanner';
+          else if (o.userData.name === 'Steam Library' || o.userData.name === 'Games Library') tipEl.textContent = 'Click: Games Library';
           else tipEl.textContent = (isLocked ? 'Hold LMB: Forge-grab  ' : '') + (o.userData.isFile ? ' Open: ' : '') + (o.userData.name || '');
         } else if (o?.userData?.isPortal) {
           newHover = o; tipEl.style.display = 'block';
@@ -6303,6 +6601,8 @@
       if (pressed(1)) { // B/Circle - close/back
         if ($('preview').style.display === 'flex') closePreview();
         else if ($('webpanel-overlay').style.display === 'flex') closeWebPanel();
+        else if ($('steam-modal').style.display === 'flex') closeSteamModal();
+        else if ($('nft-modal').style.display === 'flex') closeNFTModal();
         else if (_startMenuOpen) { _startMenuOpen = false; $('start-menu').style.display = 'none'; }
       }
       if (pressed(2)) toggleTheatreMode(); // Square/X
@@ -6328,158 +6628,223 @@
     }
 
     // ===============================================================
-    // STEAM SHELF
+    // GAMES LIBRARY MODAL
     // ===============================================================
-    let _steamGames  = null; // cached after first scan
-    let _steamFilter = '';
+    let _gameLibrary = null;
+    let _gameFilter = '';
+    let _gameProvider = 'all';
+    let _renderedGames = [];
+    const GAME_PROVIDERS = { all: 'All', steam: 'Steam', xbox: 'Xbox', gog: 'GOG', epic: 'Epic' };
 
-    async function openSteamShelf() {
-      // Open panel immediately with loading state
-      _renderSteamPanel(null, false);
+    function openSteamModal() {
+      const modal = $('steam-modal');
+      if (!modal) return;
+      modal.style.display = 'flex';
+      unlockPointerNow();
+      setDesktopMode(true);
+      const search = $('steam-modal-search');
+      if (search) search.value = _gameFilter;
+      updateGameProviderTabs();
+      if (_gameLibrary === null) refreshSteamLibrary();
+      else renderSteamGames(_gameLibrary);
+      setTimeout(() => search?.focus(), 60);
+      UIsound('open');
+    }
 
-      if (!window.electronAPI) {
-        showToast('⚠ Steam library requires the Electron app');
+    function closeSteamModal() {
+      const modal = $('steam-modal');
+      if (modal) modal.style.display = 'none';
+    }
+
+    function setGameProvider(provider) {
+      _gameProvider = GAME_PROVIDERS[provider] ? provider : 'all';
+      updateGameProviderTabs();
+      renderSteamGames(_gameLibrary || []);
+    }
+
+    function updateGameProviderTabs() {
+      document.querySelectorAll('.steam-provider-tab').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.provider === _gameProvider);
+      });
+    }
+
+    async function refreshSteamLibrary() {
+      const status = $('steam-modal-status');
+      const grid = $('steam-game-grid');
+      const count = $('steam-modal-count');
+      const refreshBtn = $('steam-modal-refresh');
+      const search = $('steam-modal-search');
+      if (status) { status.style.display = 'block'; status.textContent = 'Scanning Steam, Xbox, GOG, and Epic...'; }
+      if (grid) { grid.style.display = 'none'; grid.innerHTML = ''; }
+      if (count) count.textContent = '';
+      if (search) search.value = '';
+      _gameFilter = '';
+      _gameProvider = 'all';
+      updateGameProviderTabs();
+      if (refreshBtn) { refreshBtn.disabled = true; refreshBtn.textContent = 'Scanning...'; }
+
+      if (!window.electronAPI?.getGameLibraries && !window.electronAPI?.getSteamLibrary) {
+        if (status) status.textContent = 'Game library scan requires the DesktopX Electron app.';
+        if (refreshBtn) { refreshBtn.disabled = false; refreshBtn.textContent = '↺ Refresh'; }
+        showToast('Game library scan requires the Electron app');
         return;
       }
 
-      if (!_steamGames) {
-        const result = await window.electronAPI.getSteamLibrary();
-        if (result.error) {
-          showToast('⚠ ' + result.error);
-          _renderSteamPanel([], true); // show empty state
-          return;
-        }
-        _steamGames = result.games;
+      try {
+        let result;
+        if (window.electronAPI?.getGameLibraries) result = await window.electronAPI.getGameLibraries();
+        else result = await window.electronAPI.getSteamLibrary();
+        if (result?.error) throw new Error(result.error);
+        _gameLibrary = Array.isArray(result?.games) ? result.games.map(normalizeGameCard) : [];
+        renderSteamGames(_gameLibrary);
+      } catch (e) {
+        _gameLibrary = [];
+        if (status) { status.style.display = 'block'; status.textContent = 'Game scan failed: ' + (e?.message || e); }
+        if (grid) { grid.style.display = 'none'; grid.innerHTML = ''; }
+        if (count) count.textContent = '';
+        showToast('Game scan failed: ' + (e?.message || e));
+      } finally {
+        if (refreshBtn) { refreshBtn.disabled = false; refreshBtn.textContent = '↺ Refresh'; }
       }
-      _steamFilter = '';
-      _renderSteamPanel(_steamGames, false);
     }
 
-    function _steamRefresh() { _steamGames = null; openSteamShelf(); }
-
-    function _steamSearch(q) {
-      _steamFilter = q.toLowerCase();
-      const filtered = (_steamGames || []).filter(g =>
-        g.name.toLowerCase().includes(_steamFilter)
-      );
-      _buildSteamGrid(filtered);
+    function filterSteamGames(query) {
+      _gameFilter = String(query || '').trim().toLowerCase();
+      renderSteamGames(_gameLibrary || []);
     }
 
-    function _buildSteamGrid(games) {
-      const grid = document.getElementById('_sx-grid');
-      if (!grid) return;
-      if (!games || games.length === 0) {
-        grid.innerHTML = `<div style="grid-column:1/-1;color:rgba(0,160,255,.4);
-          text-align:center;padding:40px 0;font-size:12px">
-          ${_steamFilter ? 'No games match your search.' : 'No installed Steam games found.'}
+    function normalizeGameCard(game) {
+      const provider = String(game.provider || 'steam').toLowerCase();
+      const id = String(game.id || game.appId || game.packageFamilyName || game.name || '').trim();
+      return {
+        ...game,
+        provider,
+        providerLabel: game.providerLabel || GAME_PROVIDERS[provider] || provider,
+        id,
+        name: game.name || id || 'Untitled Game',
+        _key: `${provider}:${id || game.name}`,
+      };
+    }
+
+    function uniqueGameCards(games) {
+      const seen = new Set();
+      const out = [];
+      for (const raw of games || []) {
+        const game = normalizeGameCard(raw);
+        const key = String(game._key || '').toLowerCase();
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        out.push(game);
+      }
+      return out;
+    }
+
+    function renderSteamGames(games) {
+      const status = $('steam-modal-status');
+      const grid = $('steam-game-grid');
+      const count = $('steam-modal-count');
+      if (!status || !grid) return;
+
+      const allGames = uniqueGameCards(games).sort((a, b) => String(a.name).localeCompare(String(b.name)) || String(a.provider).localeCompare(String(b.provider)));
+      const providerGames = _gameProvider === 'all' ? allGames : allGames.filter(game => game.provider === _gameProvider);
+      const filtered = _gameFilter
+        ? providerGames.filter(game => String(game.name || '').toLowerCase().includes(_gameFilter) || String(game.providerLabel || '').toLowerCase().includes(_gameFilter))
+        : providerGames;
+      _renderedGames = filtered;
+
+      if (count) {
+        const byProvider = allGames.reduce((acc, game) => { acc[game.provider] = (acc[game.provider] || 0) + 1; return acc; }, {});
+        const providerParts = ['steam', 'xbox', 'gog', 'epic'].filter(p => byProvider[p]).map(p => `${GAME_PROVIDERS[p]} ${byProvider[p]}`);
+        count.textContent = allGames.length ? `${filtered.length} of ${allGames.length} games${providerParts.length ? ' - ' + providerParts.join(' / ') : ''}` : '';
+      }
+
+      if (!allGames.length) {
+        status.style.display = 'block';
+        status.textContent = 'No installed games found. Click Refresh to scan Steam, Xbox, GOG, and Epic.';
+        grid.style.display = 'none';
+        grid.innerHTML = '';
+        return;
+      }
+
+      if (!filtered.length) {
+        status.style.display = 'block';
+        status.textContent = 'No games match the current filter.';
+        grid.style.display = 'none';
+        grid.innerHTML = '';
+        return;
+      }
+
+      status.style.display = 'none';
+      grid.style.display = 'grid';
+      grid.innerHTML = filtered.map(renderSteamGameCard).join('');
+    }
+
+    function gameProviderClass(provider) {
+      return 'provider-' + String(provider || 'steam').replace(/[^a-z0-9_-]/gi, '').toLowerCase();
+    }
+
+    function renderSteamGameCard(game, index) {
+      const providerClass = gameProviderClass(game.provider);
+      const name = escHtml(game.name || 'Untitled Game');
+      const label = escHtml(game.providerLabel || GAME_PROVIDERS[game.provider] || game.provider || 'Game');
+      const art = escHtml(game.portrait || game.header || game.cover || '');
+      const size = game.sizeGb ? `<div class="steam-game-size">${escHtml(game.sizeGb)} GB</div>` : '<div class="steam-game-size">&nbsp;</div>';
+      const artHtml = art
+        ? `<img class="steam-game-art" src="${art}" alt="${name}" loading="lazy" onerror="this.outerHTML='<div class=&quot;steam-game-art steam-game-art-placeholder&quot;><span>${label}</span></div>'">`
+        : `<div class="steam-game-art steam-game-art-placeholder"><span>${label}</span></div>`;
+
+      return `
+        <div class="steam-game-card ${providerClass}" title="${name}" onclick="launchRenderedGame(${index})">
+          ${artHtml}
+          <div class="steam-game-info">
+            <span class="steam-provider-badge">${label}</span>
+            <div class="steam-game-name">${name}</div>
+            ${size}
+            <button class="steam-play-btn" onclick="event.stopPropagation();launchRenderedGame(${index})">PLAY</button>
+          </div>
         </div>`;
-        return;
-      }
-      grid.innerHTML = games.map(g => `
-        <div style="border-radius:8px;overflow:hidden;background:rgba(0,8,24,.7);
-                    border:1px solid rgba(0,160,255,.15);cursor:pointer;
-                    transition:transform .15s,border-color .15s,box-shadow .15s"
-             onmouseover="this.style.transform='scale(1.05)';this.style.borderColor='rgba(0,200,255,.6)';this.style.boxShadow='0 0 18px rgba(0,160,255,.25)'"
-             onmouseout ="this.style.transform='';this.style.borderColor='rgba(0,160,255,.15)';this.style.boxShadow='none'">
-          <div style="position:relative">
-            <img src="${g.portrait}" loading="lazy"
-                 style="width:100%;display:block;aspect-ratio:2/3;object-fit:cover"
-                 onerror="this.parentElement.style.background='rgba(0,20,50,.9)';this.style.display='none'">
-          </div>
-          <div style="padding:7px 8px">
-            <div style="font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-                        color:#8cf;margin-bottom:2px;letter-spacing:.02em" title="${g.name.replace(/"/g,'&quot;')}">${g.name}</div>
-            ${g.sizeGb ? `<div style="font-size:9px;color:rgba(0,160,255,.35);margin-bottom:5px">${g.sizeGb} GB</div>` : '<div style="margin-bottom:5px"></div>'}
-            <button onclick="_steamLaunch('${g.appId}')"
-                    style="width:100%;background:rgba(0,190,70,.18);border:1px solid rgba(0,210,70,.35);
-                           color:#0e9;padding:4px 0;border-radius:5px;cursor:pointer;
-                           font-size:10px;letter-spacing:.05em;transition:background .12s"
-                    onmouseover="this.style.background='rgba(0,200,80,.32)'"
-                    onmouseout ="this.style.background='rgba(0,190,70,.18)'">
-              ▶ PLAY
-            </button>
-          </div>
-        </div>
-      `).join('');
     }
 
-    function _renderSteamPanel(games, showError) {
-      const overlay = document.getElementById('webpanel-overlay');
-      const frame   = document.getElementById('webpanel-frame');
-      if (!overlay || !frame) return;
+    async function launchRenderedGame(index) {
+      const game = _renderedGames[index];
+      if (!game) { showToast('Game not found in current list'); return; }
+      await launchSteamGame(game);
+    }
 
-      const isLoading = games === null;
-      const count     = isLoading ? '' : `${games.length} game${games.length !== 1 ? 's' : ''}`;
-
-      frame.srcdoc = `<!DOCTYPE html><html><head>
-        <style>
-          *{margin:0;padding:0;box-sizing:border-box}
-          body{background:#050d1a;font-family:'Segoe UI',sans-serif;color:#0af;
-               padding:16px;min-height:100vh;overflow-x:hidden}
-          #_sx-search{
-            background:rgba(0,160,255,.08);border:1px solid rgba(0,160,255,.25);
-            color:#0af;padding:6px 12px;border-radius:6px;font-size:11px;
-            width:100%;outline:none;transition:border-color .2s}
-          #_sx-search:focus{border-color:rgba(0,200,255,.55)}
-          #_sx-search::placeholder{color:rgba(0,160,255,.3)}
-          #_sx-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:12px}
-          ::-webkit-scrollbar{width:4px}
-          ::-webkit-scrollbar-track{background:transparent}
-          ::-webkit-scrollbar-thumb{background:rgba(0,160,255,.25);border-radius:2px}
-        </style>
-      </head><body>
-        <!-- Header -->
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-          <span style="font-size:14px;letter-spacing:.12em;font-weight:600">🎮 STEAM LIBRARY</span>
-          <span id="_sx-count" style="font-size:10px;color:rgba(0,160,255,.4);margin-left:4px">${count}</span>
-          <button onclick="window.parent._steamRefresh()"
-                  style="margin-left:auto;background:rgba(0,160,255,.1);border:1px solid rgba(0,160,255,.3);
-                         color:#0af;padding:4px 10px;border-radius:5px;cursor:pointer;font-size:10px"
-                  title="Re-scan library">↺ Refresh</button>
-        </div>
-        <!-- Search -->
-        <div style="margin-bottom:14px">
-          <input id="_sx-search" type="text" placeholder="Search games…"
-                 oninput="window.parent._steamSearch(this.value)">
-        </div>
-        <!-- Grid -->
-        <div id="_sx-grid">
-          ${isLoading
-            ? `<div style="grid-column:1/-1;text-align:center;padding:60px 0;
-                           color:rgba(0,160,255,.45);font-size:12px;letter-spacing:.08em">
-                 Scanning Steam library…
-               </div>`
-            : ''
+    async function launchSteamGame(gameOrAppId) {
+      const game = typeof gameOrAppId === 'object'
+        ? gameOrAppId
+        : (_gameLibrary || []).find(g => String(g.appId || g.id) === String(gameOrAppId)) || { provider: 'steam', appId: gameOrAppId, id: gameOrAppId };
+      try {
+        if (window.electronAPI?.launchGame) {
+          const result = await window.electronAPI.launchGame(game);
+          if (result?.error) throw new Error(result.error);
+        } else if (game.provider === 'steam' || game.appId) {
+          const appId = String(game.appId || game.id || '').replace(/[^0-9]/g, '');
+          if (!appId) throw new Error('Steam app id missing');
+          if (window.electronAPI?.launchSteamGame) {
+            const result = await window.electronAPI.launchSteamGame(appId);
+            if (result?.error) throw new Error(result.error);
+          } else {
+            window.location.href = `steam://run/${appId}`;
           }
-        </div>
-      </body></html>`;
-
-      overlay.style.display = 'flex';
-
-      // Populate grid after frame loads
-      if (!isLoading) {
-        frame.onload = () => {
-          _buildSteamGrid(games);
-          frame.onload = null;
-        };
+        } else {
+          throw new Error('Launching this store requires the DesktopX Electron app');
+        }
+        showToast(`Launching ${game.providerLabel || GAME_PROVIDERS[game.provider] || 'game'} game...`);
+      } catch (e) {
+        showToast('Game launch failed: ' + (e?.message || e));
       }
     }
 
-    // Callable from iframe buttons via window.parent
-    window._steamLaunch = async function(appId) {
-      if (window.electronAPI) {
-        const r = await window.electronAPI.launchSteamGame(appId);
-        if (r.error) { showToast('⚠ ' + r.error); return; }
-      } else {
-        window.open(`steam://run/${appId}`, '_self');
-      }
-      showToast('🎮 Launching game…');
-    };
-    window._steamRefresh = _steamRefresh;
-    window._steamSearch  = _steamSearch;
-    window._buildSteamGrid = _buildSteamGrid;
-
-    // ===============================================================
+    window.openSteamModal = openSteamModal;
+    window.closeSteamModal = closeSteamModal;
+    window.refreshSteamLibrary = refreshSteamLibrary;
+    window.filterSteamGames = filterSteamGames;
+    window.setGameProvider = setGameProvider;
+    window.launchRenderedGame = launchRenderedGame;
+    window.launchSteamGame = launchSteamGame;
+    window.openSteamShelf = openSteamModal;    // ===============================================================
     // INIT
     // ===============================================================
     async function initApp() {

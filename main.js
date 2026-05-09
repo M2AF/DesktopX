@@ -7,7 +7,7 @@ const fs    = require('fs');
 const http  = require('http');
 const https = require('https');
 const url   = require('url');
-const { execSync } = require('child_process');
+const { execFile, execFileSync, execSync } = require('child_process');
 const os    = require('os');
 
 const IS_DEV    = !app.isPackaged;
@@ -248,94 +248,455 @@ ipcMain.handle('save:write', async (_e, content) => {
   } catch (e) { return { error: e.message }; }
 });
 
-// ── IPC: Steam library scanner ────────────────────────────────────────────────
-ipcMain.handle('steam:getLibrary', async () => {
+// ── Game library scanners ───────────────────────────────────────────────────
+const GAME_PROVIDER_LABELS = { steam: 'Steam', xbox: 'Xbox', gog: 'GOG', epic: 'Epic' };
+
+function normalizeGameName(name) {
+  return String(name || '')
+    .replace(/[™®©]/g, '')
+    .replace(/\b(game of the year|goty|edition|standard|deluxe|ultimate|windows|win10|xbox|pc)\b/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function toSizeGb(bytes) {
+  const n = Number(bytes || 0);
+  return n > 0 ? (n / 1e9).toFixed(1) : null;
+}
+
+function cleanPathValue(value) {
+  return String(value || '').trim().replace(/^"|"$/g, '');
+}
+
+function safeJsonParse(raw, fallback = null) {
+  try { return JSON.parse(raw); } catch { return fallback; }
+}
+
+function execFileText(file, args, opts = {}) {
+  return new Promise((resolve, reject) => {
+    execFile(file, args, { encoding: 'utf8', windowsHide: true, maxBuffer: 1024 * 1024 * 16, ...opts }, (err, stdout, stderr) => {
+      if (err) { err.stderr = stderr; reject(err); return; }
+      resolve(stdout || '');
+    });
+  });
+}
+
+async function runPowerShellJson(script) {
+  if (process.platform !== 'win32') return null;
+  const stdout = await execFileText('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', script]);
+  return safeJsonParse(stdout.trim(), null);
+}
+
+function makeGame(provider, fields) {
+  const id = String(fields.id || fields.appId || fields.packageFamilyName || fields.appName || fields.name || '').trim();
+  const name = String(fields.name || fields.displayName || id || 'Untitled Game').trim();
+  return {
+    provider,
+    providerLabel: GAME_PROVIDER_LABELS[provider] || provider,
+    id,
+    name,
+    searchName: normalizeGameName(name).toLowerCase(),
+    ...fields,
+  };
+}
+
+function uniqueGames(games) {
+  const seen = new Set();
+  const out = [];
+  for (const game of games || []) {
+    if (!game || !game.provider || !game.name) continue;
+    const key = `${game.provider}:${game.id || game.appId || game.packageFamilyName || game.name}`.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(game);
+  }
+  return out.sort((a, b) => String(a.name).localeCompare(String(b.name)) || String(a.provider).localeCompare(String(b.provider)));
+}
+
+function getWindowsDriveRoots() {
+  if (process.platform !== 'win32') return [];
+  const roots = [];
+  for (let code = 67; code <= 90; code++) {
+    const root = String.fromCharCode(code) + ':\\';
+    try { if (fs.existsSync(root)) roots.push(root); } catch { /* inaccessible drive */ }
+  }
+  return roots;
+}
+
+function getXboxInstallRoots() {
+  if (process.platform !== 'win32') return [];
+  return uniquePaths(getWindowsDriveRoots().map(root => path.join(root, 'XboxGames')).filter(p => fs.existsSync(p)));
+}
+
+function uniquePaths(paths) {
+  const seen = new Set();
+  const out = [];
+  for (const p of paths || []) {
+    const key = String(p || '').toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(p);
+  }
+  return out;
+}
+
+function readXboxGameFolders() {
+  const games = [];
+  for (const root of getXboxInstallRoots()) {
+    let entries = [];
+    try { entries = fs.readdirSync(root, { withFileTypes: true }); } catch { continue; }
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const folderPath = path.join(root, entry.name);
+      const contentPath = path.join(folderPath, 'Content');
+      const configPath = path.join(contentPath, 'MicrosoftGame.config');
+      let config = '';
+      try { if (fs.existsSync(configPath)) config = fs.readFileSync(configPath, 'utf8'); } catch { /* unreadable config */ }
+      const titleMatch = config.match(/<Title[^>]*(?:Name|TitleName|DisplayName)="([^"]+)"/i) || config.match(/DisplayName="([^"]+)"/i);
+      const identityMatch = config.match(/<Identity[^>]*Name="([^"]+)"/i);
+      const executableMatch = config.match(/<Executable[^>]*Name="([^"]+)"/i);
+      games.push({
+        folderName: entry.name,
+        name: titleMatch?.[1] || entry.name,
+        packageName: identityMatch?.[1] || '',
+        executable: executableMatch?.[1] || '',
+        installLocation: folderPath,
+        contentPath,
+      });
+    }
+  }
+  return games;
+}
+
+function asArray(value) {
+  if (!value) return [];
+  return Array.isArray(value) ? value : [value];
+}
+
+function startAppMatchesPackage(startApp, pkg) {
+  const appId = String(startApp?.AppID || startApp?.AppId || startApp?.appId || '');
+  const pfn = String(pkg?.PackageFamilyName || '');
+  if (pfn && appId.toLowerCase().startsWith(pfn.toLowerCase() + '!')) return true;
+  const packageName = String(pkg?.Name || '').toLowerCase();
+  if (packageName && appId.toLowerCase().includes(packageName)) return true;
+  return false;
+}
+
+function startAppMatchesFolder(startApp, folderGame) {
+  const appName = normalizeGameName(startApp?.Name || '').toLowerCase();
+  const folderName = normalizeGameName(folderGame?.name || folderGame?.folderName || '').toLowerCase();
+  const appId = String(startApp?.AppID || '').toLowerCase();
+  const packageName = String(folderGame?.packageName || '').toLowerCase();
+  if (packageName && appId.includes(packageName)) return true;
+  return appName && folderName && (appName === folderName || appName.includes(folderName) || folderName.includes(appName));
+}
+
+async function scanSteamLibrary() {
   try {
     let steamPath = null;
 
     if (process.platform === 'win32') {
       try {
-        const out = execSync(
-          'reg query "HKCU\\Software\\Valve\\Steam" /v SteamPath',
-          { encoding: 'utf-8' }
-        );
+        const out = execSync('reg query "HKCU\\Software\\Valve\\Steam" /v SteamPath', { encoding: 'utf-8' });
         const match = out.match(/SteamPath\s+REG_SZ\s+(.+)/i);
         if (match) steamPath = match[1].trim().replace(/\//g, '\\');
       } catch {
-        // Try 32-bit registry fallback
         try {
-          const out = execSync(
-            'reg query "HKLM\\Software\\Wow6432Node\\Valve\\Steam" /v InstallPath',
-            { encoding: 'utf-8' }
-          );
+          const out = execSync('reg query "HKLM\\Software\\Wow6432Node\\Valve\\Steam" /v InstallPath', { encoding: 'utf-8' });
           const match = out.match(/InstallPath\s+REG_SZ\s+(.+)/i);
           if (match) steamPath = match[1].trim();
-        } catch { return { error: 'Steam installation not found in registry.' }; }
+        } catch { return []; }
       }
     } else if (process.platform === 'linux') {
-      const candidates = [
-        path.join(os.homedir(), '.steam', 'steam'),
-        path.join(os.homedir(), '.local', 'share', 'Steam'),
-      ];
+      const candidates = [path.join(os.homedir(), '.steam', 'steam'), path.join(os.homedir(), '.local', 'share', 'Steam')];
       steamPath = candidates.find(p => fs.existsSync(p)) || null;
     } else if (process.platform === 'darwin') {
       steamPath = path.join(os.homedir(), 'Library', 'Application Support', 'Steam');
     }
 
-    if (!steamPath || !fs.existsSync(steamPath)) {
-      return { error: 'Steam folder not found. Is Steam installed?' };
-    }
+    if (!steamPath || !fs.existsSync(steamPath)) return [];
 
-    // Collect all steamapps library folders
     const libraryFolders = [path.join(steamPath, 'steamapps')];
     const vdfPath = path.join(steamPath, 'steamapps', 'libraryfolders.vdf');
     if (fs.existsSync(vdfPath)) {
       const vdf = fs.readFileSync(vdfPath, 'utf-8');
       for (const m of vdf.matchAll(/"path"\s+"([^"]+)"/gi)) {
         const libApps = path.join(m[1].replace(/\\\\/g, '\\'), 'steamapps');
-        if (fs.existsSync(libApps) && !libraryFolders.includes(libApps))
-          libraryFolders.push(libApps);
+        if (fs.existsSync(libApps) && !libraryFolders.includes(libApps)) libraryFolders.push(libApps);
       }
     }
 
-    // Scan every library for appmanifest_*.acf files
     const games = [];
+    const seenAppIds = new Set();
     for (const libPath of libraryFolders) {
       let entries;
       try { entries = fs.readdirSync(libPath); } catch { continue; }
       for (const entry of entries) {
         if (!entry.startsWith('appmanifest_') || !entry.endsWith('.acf')) continue;
         try {
-          const acf    = fs.readFileSync(path.join(libPath, entry), 'utf-8');
-          const appId  = (acf.match(/"appid"\s+"(\d+)"/i)   || [])[1];
-          const name   = (acf.match(/"name"\s+"([^"]+)"/i)  || [])[1];
+          const acf = fs.readFileSync(path.join(libPath, entry), 'utf-8');
+          const appId = (acf.match(/"appid"\s+"(\d+)"/i) || [])[1];
+          const name = (acf.match(/"name"\s+"([^"]+)"/i) || [])[1];
           const sizeKb = (acf.match(/"SizeOnDisk"\s+"(\d+)"/i) || [])[1];
-          if (appId && name) {
-            games.push({
+          if (appId && name && !seenAppIds.has(appId)) {
+            seenAppIds.add(appId);
+            games.push(makeGame('steam', {
+              id: appId,
               appId,
               name,
-              sizeGb:  sizeKb ? (parseInt(sizeKb) / 1e9).toFixed(1) : null,
-              header:  `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/header.jpg`,
-              portrait:`https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/library_600x900.jpg`,
-            });
+              sizeGb: sizeKb ? (parseInt(sizeKb, 10) / 1e9).toFixed(1) : null,
+              header: `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/header.jpg`,
+              portrait: `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/library_600x900.jpg`,
+              launchType: 'steam',
+              launchTarget: appId,
+            }));
           }
         } catch { /* skip malformed acf */ }
       }
     }
+    return uniqueGames(games);
+  } catch { return []; }
+}
 
-    // Sort alphabetically
-    games.sort((a, b) => a.name.localeCompare(b.name));
-    return { games };
-  } catch (e) { return { error: e.message }; }
-});
-
-ipcMain.handle('steam:launchGame', async (_e, appId) => {
+async function scanXboxLibrary() {
+  if (process.platform !== 'win32') return [];
   try {
+    const folderGames = readXboxGameFolders();
+    const ps = `
+      $packages = Get-AppxPackage | Select-Object Name, PackageFamilyName, InstallLocation, Publisher, SignatureKind
+      $startApps = Get-StartApps | Select-Object Name, AppID
+      [pscustomobject]@{ Packages = $packages; StartApps = $startApps } | ConvertTo-Json -Depth 5
+    `;
+    const data = await runPowerShellJson(ps).catch(() => null);
+    const packages = asArray(data?.Packages);
+    const startApps = asArray(data?.StartApps);
+    const xboxRoots = getXboxInstallRoots().map(p => p.toLowerCase());
+    const games = [];
+
+    for (const folderGame of folderGames) {
+      const pkg = packages.find(p => {
+        const loc = String(p.InstallLocation || '').toLowerCase();
+        const pkgName = String(p.Name || '').toLowerCase();
+        return loc && folderGame.contentPath && folderGame.contentPath.toLowerCase().startsWith(loc) ||
+          (folderGame.packageName && pkgName === folderGame.packageName.toLowerCase());
+      });
+      const startApp = startApps.find(a => startAppMatchesPackage(a, pkg)) || startApps.find(a => startAppMatchesFolder(a, folderGame));
+      const aumid = startApp?.AppID || startApp?.AppId || '';
+      if (!aumid) continue;
+      games.push(makeGame('xbox', {
+        id: aumid,
+        name: folderGame.name || startApp.Name,
+        packageFamilyName: pkg?.PackageFamilyName || '',
+        installLocation: folderGame.installLocation,
+        launchType: 'xbox-aumid',
+        launchTarget: { aumid },
+      }));
+    }
+
+    for (const pkg of packages) {
+      const installLocation = String(pkg.InstallLocation || '');
+      const lowerLocation = installLocation.toLowerCase();
+      const startsInXboxRoot = xboxRoots.some(root => lowerLocation.startsWith(root.toLowerCase()));
+      const knownGamePackage = /halo|forza|minecraft|seaofthieves|flight|bethesda|zenimax|doublefine|obsidian|microsoft\.studios|microsoft\.gaming/i.test(String(pkg.Name || ''));
+      if (!startsInXboxRoot && !knownGamePackage) continue;
+      const startApp = startApps.find(a => startAppMatchesPackage(a, pkg));
+      const aumid = startApp?.AppID || startApp?.AppId || '';
+      if (!aumid) continue;
+      games.push(makeGame('xbox', {
+        id: aumid,
+        name: startApp.Name || pkg.Name,
+        packageFamilyName: pkg.PackageFamilyName,
+        installLocation,
+        launchType: 'xbox-aumid',
+        launchTarget: { aumid },
+      }));
+    }
+
+    return uniqueGames(games);
+  } catch { return []; }
+}
+
+function parseRegistryGames(raw) {
+  const records = [];
+  let current = null;
+  for (const line of String(raw || '').split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    if (/^HKEY_/i.test(trimmed)) {
+      if (current) records.push(current);
+      current = { registryKey: trimmed };
+      continue;
+    }
+    const match = line.match(/^\s+([^\s]+)\s+REG_[A-Z0-9_]+\s+(.*)$/i);
+    if (current && match) current[match[1].toLowerCase()] = match[2].trim();
+  }
+  if (current) records.push(current);
+  return records;
+}
+
+function queryRegistryTree(key) {
+  if (process.platform !== 'win32') return '';
+  try { return execFileSync('reg', ['query', key, '/s'], { encoding: 'utf8', windowsHide: true, maxBuffer: 1024 * 1024 * 8 }); }
+  catch { return ''; }
+}
+
+async function scanGogLibrary() {
+  if (process.platform !== 'win32') return [];
+  const keys = [
+    'HKLM\\SOFTWARE\\WOW6432Node\\GOG.com\\Games',
+    'HKLM\\SOFTWARE\\GOG.com\\Games',
+    'HKCU\\SOFTWARE\\GOG.com\\Games',
+  ];
+  const records = keys.flatMap(key => parseRegistryGames(queryRegistryTree(key)));
+  const games = [];
+  for (const rec of records) {
+    const installLocation = cleanPathValue(rec.path || rec.installpath || rec.workingdir || '');
+    const id = rec.gameid || rec.buildid || rec.registryKey?.split('\\').pop() || rec.gamename || '';
+    const name = rec.gamename || rec.name || (installLocation ? path.basename(installLocation) : '');
+    if (!name || !id) continue;
+    games.push(makeGame('gog', {
+      id,
+      name,
+      installLocation,
+      launchType: 'gog',
+      launchTarget: {
+        command: cleanPathValue(rec.launchcommand || rec.launchpath || ''),
+        exe: cleanPathValue(rec.exe || rec.executable || ''),
+        installLocation,
+        workingDir: cleanPathValue(rec.workingdir || installLocation),
+      },
+    }));
+  }
+  return uniqueGames(games);
+}
+
+async function scanEpicLibrary() {
+  const candidates = [];
+  if (process.platform === 'win32') {
+    const programData = process.env.ProgramData || 'C:\\ProgramData';
+    candidates.push(path.join(programData, 'Epic', 'EpicGamesLauncher', 'Data', 'Manifests'));
+  } else if (process.platform === 'darwin') {
+    candidates.push(path.join(os.homedir(), 'Library', 'Application Support', 'Epic', 'EpicGamesLauncher', 'Data', 'Manifests'));
+  } else {
+    candidates.push(path.join(os.homedir(), '.config', 'Epic', 'EpicGamesLauncher', 'Data', 'Manifests'));
+  }
+
+  const games = [];
+  for (const manifestsDir of candidates) {
+    if (!fs.existsSync(manifestsDir)) continue;
+    let entries = [];
+    try { entries = fs.readdirSync(manifestsDir); } catch { continue; }
+    for (const entry of entries) {
+      if (!entry.toLowerCase().endsWith('.item')) continue;
+      const manifest = safeJsonParse(fs.readFileSync(path.join(manifestsDir, entry), 'utf8'), null);
+      if (!manifest) continue;
+      const name = manifest.DisplayName || manifest.displayName || manifest.AppName || manifest.AppNameString || manifest.InstallLocation && path.basename(manifest.InstallLocation);
+      const appName = manifest.AppName || manifest.AppId || manifest.AppIdString || '';
+      const catalogItemId = manifest.CatalogItemId || manifest.MainGameCatalogItemId || '';
+      const namespaceId = manifest.NamespaceId || manifest.CatalogNamespace || '';
+      const id = appName || catalogItemId || manifest.InstallLocation || name;
+      if (!name || !id) continue;
+      games.push(makeGame('epic', {
+        id,
+        name,
+        installLocation: manifest.InstallLocation || '',
+        launchType: 'epic',
+        launchTarget: {
+          appName,
+          catalogItemId,
+          namespaceId,
+          installLocation: manifest.InstallLocation || '',
+          launchExecutable: manifest.LaunchExecutable || '',
+          launchCommand: manifest.LaunchCommand || '',
+        },
+      }));
+    }
+  }
+  return uniqueGames(games);
+}
+
+function getGogLaunchPath(target) {
+  const command = cleanPathValue(target?.command || '');
+  if (/^[a-z][a-z0-9+.-]*:/i.test(command)) return { type: 'url', value: command };
+  if (command && fs.existsSync(command)) return { type: 'path', value: command };
+  const quoted = String(target?.command || '').match(/"([^"]+\.(?:exe|lnk|bat|cmd))"/i);
+  if (quoted && fs.existsSync(quoted[1])) return { type: 'path', value: quoted[1] };
+  const exe = cleanPathValue(target?.exe || '');
+  const installLocation = cleanPathValue(target?.installLocation || '');
+  if (exe && fs.existsSync(exe)) return { type: 'path', value: exe };
+  if (exe && installLocation && fs.existsSync(path.join(installLocation, exe))) return { type: 'path', value: path.join(installLocation, exe) };
+  if (installLocation && fs.existsSync(installLocation)) return { type: 'path', value: installLocation };
+  return null;
+}
+
+async function launchUnifiedGame(game) {
+  const provider = String(game?.provider || '').toLowerCase();
+  const target = game?.launchTarget || game || {};
+  if (provider === 'steam') {
+    const appId = String(game.appId || game.id || target || '').replace(/[^0-9]/g, '');
+    if (!appId) throw new Error('Steam app id missing.');
     await shell.openExternal(`steam://run/${appId}`);
     return { success: true };
-  } catch (e) { return { error: e.message }; }
+  }
+  if (provider === 'xbox') {
+    const aumid = String(target.aumid || game.id || '').replace(/["'`]/g, '');
+    if (!aumid) throw new Error('Xbox app id missing.');
+    await execFileText('explorer.exe', [`shell:AppsFolder\\${aumid}`]);
+    return { success: true };
+  }
+  if (provider === 'epic') {
+    const appName = target.appName || game.id || '';
+    if (!appName) throw new Error('Epic app name missing.');
+    const encodedTriple = target.namespaceId && target.catalogItemId
+      ? `${encodeURIComponent(target.namespaceId)}%3A${encodeURIComponent(target.catalogItemId)}%3A${encodeURIComponent(appName)}`
+      : encodeURIComponent(appName);
+    await shell.openExternal(`com.epicgames.launcher://apps/${encodedTriple}?action=launch&silent=true`);
+    return { success: true };
+  }
+  if (provider === 'gog') {
+    const launch = getGogLaunchPath(target);
+    if (!launch) throw new Error('GOG launch target missing.');
+    if (launch.type === 'url') await shell.openExternal(launch.value);
+    else {
+      const err = await shell.openPath(launch.value);
+      if (err) throw new Error(err);
+    }
+    return { success: true };
+  }
+  throw new Error('Unknown game provider.');
+}
+
+async function scanAllGameLibraries() {
+  const scanners = [scanSteamLibrary, scanXboxLibrary, scanGogLibrary, scanEpicLibrary];
+  const settled = await Promise.allSettled(scanners.map(scanner => scanner()));
+  const games = settled.flatMap(result => result.status === 'fulfilled' ? result.value : []);
+  return uniqueGames(games);
+}
+
+async function safeLibraryResult(scanner) {
+  try { return { games: await scanner() }; }
+  catch (e) { return { error: e.message, games: [] }; }
+}
+
+ipcMain.handle('steam:getLibrary', async () => safeLibraryResult(scanSteamLibrary));
+
+ipcMain.handle('steam:launchGame', async (_e, appId) => launchUnifiedGame({ provider: 'steam', appId, id: appId }));
+ipcMain.handle('xbox:getLibrary', async () => safeLibraryResult(scanXboxLibrary));
+ipcMain.handle('gog:getLibrary', async () => safeLibraryResult(scanGogLibrary));
+ipcMain.handle('epic:getLibrary', async () => safeLibraryResult(scanEpicLibrary));
+ipcMain.handle('xbox:launchGame', async (_e, aumid) => launchUnifiedGame({ provider: 'xbox', id: aumid, launchTarget: { aumid } }));
+ipcMain.handle('gog:launchGame', async (_e, target) => launchUnifiedGame({ provider: 'gog', launchTarget: target }));
+ipcMain.handle('epic:launchGame', async (_e, target) => launchUnifiedGame({ provider: 'epic', id: target?.appName, launchTarget: target }));
+
+ipcMain.handle('games:getLibraries', async () => {
+  try { return { games: await scanAllGameLibraries() }; }
+  catch (e) { return { error: e.message, games: [] }; }
 });
 
+ipcMain.handle('games:launch', async (_e, game) => {
+  try { return await launchUnifiedGame(game); }
+  catch (e) { return { error: e.message }; }
+});
 // ── IPC: Window controls ─────────────────────────────────────────────────────
 ipcMain.on('window:minimize', () => mainWindow?.minimize());
 ipcMain.on('window:maximize', () => mainWindow?.isMaximized() ? mainWindow.unmaximize() : mainWindow?.maximize());
