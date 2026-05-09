@@ -62,13 +62,25 @@ Say goodbye to flat windows. Walk around your files, pin videos to the walls, dr
 * Enter an Ethereum wallet address (and Alchemy API key) to summon your digital collectibles into the 3D space.
 * Turn your room into a personal gallery for your Web3 assets.
 
+### 🎮 **Games Library**
+* **Multi-Platform Support**: Seamlessly browse and launch games from **Steam**, **Xbox**, **GOG**, and **Epic Games** all in one unified library.
+* **Smart Game Discovery**: Automatically scans your game installation directories across all platforms.
+* **Provider Filters**: Sort and filter by platform to quickly find the games you want to play.
+* **Search & Discovery**: Find games by name with instant search functionality.
+* **One-Click Launch**: Launch any game directly from your 3D desktop—no need to alt-tab to launchers.
+* **Game Metadata**: Displays game names, installation paths, and provider information at a glance.
+
 ### 🖧 **Web Player & YouTube Integrations**
-* Spawn a floating 3D web panel to browse Wikipedia, check the weather, or write code without leaving the room.
-* **YouTube Support**: Search and cast YouTube videos directly to your 3D movie screen (requires a simple local python server to bypass embedding restrictions).
+* **Floating Web Panel**: Spawn a floating 3D web panel to browse Wikipedia, check the weather, or write code without leaving the room.
+* **YouTube Support**: Search and cast YouTube videos directly to your 3D movie screen. Choose from unlimited content on demand.
+* **Video Casting**: Convert YouTube URLs or search results and display them on your massive 3D screen for an immersive viewing experience.
+* **Embedded YouTube Player**: Full playback controls (play, pause, seek, volume) built into the 3D interface.
+* **YouTube Search Integration**: Search YouTube directly from the Web Player interface using the YouTube Data API v3 (requires API key configuration).
+* **Multi-Format Support**: Supports standard YouTube URLs, short URLs (youtu.be), video IDs, and YouTube Shorts.
 
 ### 💾 **Persistent Layouts**
 * Have the perfect room setup? **Save your layout!**
-* DesktopX securely saves your pinned images, videos, and 3D models into `IndexedDB`.
+* DesktopX securely saves your pinned images, videos, 3D models, and games into `IndexedDB`.
 * Export your room as a `save.json` file to share with friends or back up your masterpiece.
 
 ---
@@ -109,8 +121,11 @@ DesktopX is completely client-side and requires zero build steps!
 3. **Open in Browser:**
    Navigate to `http://localhost:3333` in any modern web browser (Chrome/Edge recommended).
 
-4. **Ready to cast YouTube?**
-   The local server (`localhost:3333`) is required to safely proxy YouTube iframes into the 3D Web Player!
+4. **Games Library Setup (Desktop/Electron only):**
+   The Electron desktop app automatically detects games from Steam, Xbox, GOG, and Epic Games installations on your system. No additional setup required—just open the Games Library from the start menu!
+
+5. **Ready for YouTube & Web Features?**
+   The local server (`localhost:3333`) enables secure YouTube iframe proxying and enhanced web player features!
 
 ---
 
@@ -120,5 +135,7 @@ Built with ❤️ using:
 - **Vanilla JavaScript** (ES6+)
 - **Three.js** (WebGL 3D Rendering)
 - **GLTFLoader & FBXLoader** (3D Model parsing)
+- **Electron** (Desktop app packaging with game library integration)
+- **YouTube Data API v3** (Search and metadata integration)
 
 *Check out the [DESIGN.md](./DESIGN.md) for a deep dive into the architecture and spatial UX principles behind DesktopX.*
