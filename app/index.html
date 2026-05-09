@@ -2319,7 +2319,7 @@
 
   <div id="xhair"></div>
   <div id="tip"></div>
-  <div id="hint">Click canvas Walk Mode &nbsp;|&nbsp; WASD+Mouse &nbsp;|&nbsp; Tab = Desktop &nbsp;|&nbsp; Hold LMB on
+  <div id="hint" style="display:none">Click canvas Walk Mode &nbsp;|&nbsp; WASD+Mouse &nbsp;|&nbsp; Tab = Desktop &nbsp;|&nbsp; Hold LMB on
     icon = Forge Grab</div>
   <div id="portal-hint">Walk closer or press F to enter</div>
 
@@ -3116,13 +3116,30 @@
 
     function UIsound(n) { ({ click: () => AmbientAudio.click(), hover: () => AmbientAudio.hover(), portal: () => AmbientAudio.portal(), open: () => AmbientAudio.open(), snap: () => AmbientAudio.snap(), pin: () => AmbientAudio.pin() }[n] || AmbientAudio.click)(); }
 
-    // Toast notification
-    let toastTimer = null;
+    // Toast notification - stacking system
+    let toastStack = [];
     function showToast(msg) {
-      let t = document.getElementById('toast3d');
-      if (!t) { t = document.createElement('div'); t.id = 'toast3d'; t.style.cssText = 'position:fixed;bottom:62px;right:14px;background:rgba(0,30,60,0.95);border:1px solid rgba(0,160,255,0.4);color:#7df;padding:7px 14px;border-radius:6px;font-size:11px;z-index:600;pointer-events:none;transition:opacity .3s;backdrop-filter:blur(8px)'; document.body.appendChild(t); }
-      t.textContent = msg; t.style.opacity = '1';
-      clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.style.opacity = '0'; }, 2200);
+      const container = document.getElementById('toast-container');
+      if (!container) {
+        const c = document.createElement('div');
+        c.id = 'toast-container';
+        c.style.cssText = 'position:fixed;bottom:62px;right:14px;pointer-events:none;z-index:600;display:flex;flex-direction:column;gap:8px';
+        document.body.appendChild(c);
+      }
+      
+      const t = document.createElement('div');
+      t.style.cssText = 'background:rgba(0,30,60,0.95);border:1px solid rgba(0,160,255,0.4);color:#7df;padding:7px 14px;border-radius:6px;font-size:11px;pointer-events:none;transition:opacity .3s;backdrop-filter:blur(8px);min-width:180px;text-align:right;opacity:1';
+      t.textContent = msg;
+      document.getElementById('toast-container').appendChild(t);
+      toastStack.push(t);
+      
+      setTimeout(() => {
+        t.style.opacity = '0';
+        setTimeout(() => {
+          t.remove();
+          toastStack = toastStack.filter(x => x !== t);
+        }, 300);
+      }, 2200);
     }
 
     // ===============================================================
@@ -4787,7 +4804,7 @@
         'Steam Library': openSteamModal,
         'Games Library': openSteamModal,
         'Notepad': () => spawnWebPanel('https://codepad.co/', 'Notepad'),
-        'Terminal': () => showToast('Use your OS terminal - 3DNA cannot exec local processes.'),
+        'Terminal': () => showToast('Use your OS terminal - DesktopX cannot exec local processes.'),
         'Now Playing': () => { const t = GlobalPlayer.getTrack(); if (t) reopenPinnedWindow({ userData: { isPinned: false } }); else showToast('No track loaded - browse a music folder.'); },
         'Visualizer': () => openURLDialog(),
         'Playlist': () => showToast('Open a music folder to queue tracks.')
@@ -4796,7 +4813,7 @@
 
     // Open folder picker with optional OS startIn hint (downloads, music, videos, etc.)
     async function openFolderStartIn(startIn = '') {
-      if (!('showDirectoryPicker' in window)) { showToast('File browser needs Chrome/Edge'); return; }
+      if (!('showDirectoryPicker' in window)) { showToast('Brave Browser doesn not work with File browser, you need Chrome/Edge'); return; }
       try {
         const opts = startIn ? { startIn } : {};
         const handle = await window.showDirectoryPicker(opts);
@@ -6129,7 +6146,7 @@
           sm.material.color.setScalar(1.0);
 
           sm.material.needsUpdate = true;
-          showToast('[FILM] ' + file.name + ' - controls in taskbar');
+          showToast('🎬 ' + file.name + ' - controls in taskbar');
         }
       } catch (e) { if (e.name !== 'AbortError') console.error(e); }
     }
@@ -6441,7 +6458,7 @@
           mvGlow.intensity = mvGlow.userData._origGlowInt * 6;
         }
 
-        showToast('[FILM] Theatre Mode - Click canvas or press Esc to exit');
+        showToast('🎬 Theatre Mode - Click canvas or press Esc to exit');
 
       } else {
 
