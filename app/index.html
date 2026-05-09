@@ -1234,6 +1234,64 @@
     #steam-modal-import:hover { background: rgba(0,160,60,0.25) }
 
     #steam-modal-import { display: none }
+    #steam-web-path-helper {
+      display: none;
+      margin: 0 14px 12px;
+      padding: 10px;
+      border: 1px solid rgba(0, 160, 70, 0.2);
+      border-radius: 8px;
+      background: rgba(0, 18, 8, 0.58)
+    }
+
+    .steam-web-helper-head {
+      color: rgba(120, 255, 180, 0.72);
+      font-size: 10px;
+      line-height: 1.45;
+      margin-bottom: 8px
+    }
+
+    .steam-web-path-row {
+      display: grid;
+      grid-template-columns: 54px minmax(0, 1fr) auto auto;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 0;
+      border-top: 1px solid rgba(0, 160, 70, 0.08)
+    }
+
+    .steam-web-path-row:first-child { border-top: 0 }
+
+    .steam-web-path-store {
+      color: #55ff99;
+      font-size: 9px;
+      letter-spacing: .08em;
+      text-transform: uppercase
+    }
+
+    .steam-web-path-text {
+      color: rgba(170, 255, 205, 0.78);
+      font-family: 'Cascadia Code', monospace;
+      font-size: 10px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      user-select: text
+    }
+
+    .steam-web-path-copy,
+    .steam-web-path-pick {
+      background: rgba(0, 160, 60, 0.12);
+      border: 1px solid rgba(0, 160, 60, 0.3);
+      color: #44dd88;
+      padding: 4px 8px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 9px;
+      white-space: nowrap
+    }
+
+    .steam-web-path-copy:hover,
+    .steam-web-path-pick:hover { background: rgba(0,160,60,0.25) }
     #steam-provider-tabs {
       display: flex;
       align-items: center;
@@ -2480,6 +2538,10 @@
       <button id="steam-modal-refresh" onclick="refreshSteamLibrary()">↺ Refresh</button>
     </div>
     <div id="steam-modal-body">
+      <div id="steam-web-path-helper">
+        <div class="steam-web-helper-head">Web mode cannot auto-read default install folders. Copy a path, paste it into the folder picker address bar, then approve that folder.</div>
+        <div id="steam-web-path-list"></div>
+      </div>
       <div id="steam-modal-status">Electron scans automatically. Web mode uses selected folders and browser-safe launch links.</div>
       <div id="steam-game-grid" style="display:none"></div>
     </div>
@@ -6644,14 +6706,52 @@
     const GAME_PROVIDERS = { all: 'All', steam: 'Steam', xbox: 'Xbox', gog: 'GOG', epic: 'Epic' };
     const WEB_GAME_CACHE_KEY = 'webGameLibrary_v1';
     const WEB_GAME_HANDLES_KEY = 'webGameLibraryHandles_v1';
+    const WEB_GAME_DEFAULT_PATHS = {
+      steam: { label: 'Steam', path: 'C:\\Program Files (x86)\\Steam\\steamapps', hint: 'Pick steamapps or any SteamLibrary steamapps folder.' },
+      xbox: { label: 'Xbox', path: 'C:\\XboxGames', hint: 'Pick the XboxGames folder.' },
+      gog: { label: 'GOG', path: 'C:\\GOG Games', hint: 'Pick GOG Games, or a single GOG game folder if that is where your installs live.' },
+      epic: { label: 'Epic', path: 'C:\\ProgramData\\Epic\\EpicGamesLauncher\\Data\\Manifests', hint: 'Pick the Manifests folder, or EpicGamesLauncher and DesktopX will look inside it.' },
+    };
 
     function hasElectronGameApi() {
       return !!(window.electronAPI?.getGameLibraries || window.electronAPI?.getSteamLibrary);
     }
 
     function updateGameModeControls() {
+      const isElectronGames = hasElectronGameApi();
       const importBtn = $('steam-modal-import');
-      if (importBtn) importBtn.style.display = hasElectronGameApi() ? 'none' : 'inline-flex';
+      const helper = $('steam-web-path-helper');
+      if (importBtn) importBtn.style.display = isElectronGames ? 'none' : 'inline-flex';
+      if (helper) helper.style.display = isElectronGames ? 'none' : 'block';
+      if (!isElectronGames) renderWebGamePathHelper();
+    }
+
+    function renderWebGamePathHelper() {
+      const list = $('steam-web-path-list');
+      if (!list) return;
+      list.innerHTML = Object.entries(WEB_GAME_DEFAULT_PATHS).map(([provider, info]) => `
+        <div class="steam-web-path-row">
+          <div class="steam-web-path-store">${escHtml(info.label)}</div>
+          <div class="steam-web-path-text" title="${escHtml(info.hint)}">${escHtml(info.path)}</div>
+          <button class="steam-web-path-copy" onclick="copyWebGamePath('${provider}')">Copy</button>
+          <button class="steam-web-path-pick" onclick="pickSingleWebGameFolder('${provider}')">Pick</button>
+        </div>`).join('');
+    }
+
+    async function copyWebGamePath(provider) {
+      const info = WEB_GAME_DEFAULT_PATHS[provider];
+      if (!info) return;
+      try {
+        if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(info.path);
+        else {
+          const ta = document.createElement('textarea');
+          ta.value = info.path; ta.style.position = 'fixed'; ta.style.left = '-9999px';
+          document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+        }
+        showToast(`${info.label} path copied`);
+      } catch {
+        showToast('Copy failed - select the path text manually');
+      }
     }
 
     function openSteamModal() {
@@ -6942,17 +7042,33 @@
       } catch { return false; }
     }
 
+    async function pickSingleWebGameFolder(provider, existing = null) {
+      const info = WEB_GAME_DEFAULT_PATHS[provider];
+      if (!info) return null;
+      const picks = existing || { ...(await DB.get(WEB_GAME_HANDLES_KEY) || {}) };
+      try {
+        const handle = await window.showDirectoryPicker({ id: `desktopx-${provider}-library`, mode: 'read' });
+        if (handle && await ensureReadPermission(handle)) {
+          picks[provider] = handle;
+          await DB.set(WEB_GAME_HANDLES_KEY, picks);
+          showToast(`${info.label} folder connected`);
+          _gameLibrary = await scanWebGameLibraries(false);
+          renderSteamGames(_gameLibrary);
+          return handle;
+        }
+      } catch (e) {
+        if (e?.name !== 'AbortError') console.warn('Game folder pick failed:', provider, e);
+      }
+      return null;
+    }
+
     async function pickWebGameFolders(existing = {}) {
       const picks = { ...existing };
-      alert('DesktopX Web will ask for game folders one store at a time. Cancel any store you do not use.');
-      for (const item of [
-        ['steam', 'Steam steamapps folder or Steam library folder'],
-        ['xbox', 'XboxGames folder'],
-        ['gog', 'GOG games folder or a single GOG game folder'],
-        ['epic', 'Epic Manifests folder or EpicGamesLauncher folder'],
-      ]) {
-        const [provider, label] = item;
-        if (!confirm(`Select ${label}?`)) continue;
+      renderWebGamePathHelper();
+      alert('DesktopX Web will ask for game folders one store at a time. Before each picker, use the Copy button beside that store path, then paste it into the folder picker address bar. Cancel any store you do not use.');
+      for (const provider of ['steam', 'xbox', 'gog', 'epic']) {
+        const info = WEB_GAME_DEFAULT_PATHS[provider];
+        if (!confirm(`${info.label} folder\n\nDefault path:\n${info.path}\n\nTip: copy this path from the Games window before opening the picker, then paste it into the folder picker's address bar.\n\nOpen picker now?`)) continue;
         try {
           const handle = await window.showDirectoryPicker({ id: `desktopx-${provider}-library`, mode: 'read' });
           if (handle && await ensureReadPermission(handle)) picks[provider] = handle;
@@ -7111,11 +7227,15 @@
     window.closeSteamModal = closeSteamModal;
     window.refreshSteamLibrary = refreshSteamLibrary;
     window.importWebGameFolders = importWebGameFolders;
+    window.copyWebGamePath = copyWebGamePath;
+    window.pickSingleWebGameFolder = pickSingleWebGameFolder;
     window.filterSteamGames = filterSteamGames;
     window.setGameProvider = setGameProvider;
     window.launchRenderedGame = launchRenderedGame;
     window.launchSteamGame = launchSteamGame;
-    window.openSteamShelf = openSteamModal;    // ===============================================================
+    window.openSteamShelf = openSteamModal;
+
+    // ===============================================================
     // INIT
     // ===============================================================
     async function initApp() {
