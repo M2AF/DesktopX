@@ -6328,6 +6328,158 @@
     }
 
     // ===============================================================
+    // STEAM SHELF
+    // ===============================================================
+    let _steamGames  = null; // cached after first scan
+    let _steamFilter = '';
+
+    async function openSteamShelf() {
+      // Open panel immediately with loading state
+      _renderSteamPanel(null, false);
+
+      if (!window.electronAPI) {
+        showToast('⚠ Steam library requires the Electron app');
+        return;
+      }
+
+      if (!_steamGames) {
+        const result = await window.electronAPI.getSteamLibrary();
+        if (result.error) {
+          showToast('⚠ ' + result.error);
+          _renderSteamPanel([], true); // show empty state
+          return;
+        }
+        _steamGames = result.games;
+      }
+      _steamFilter = '';
+      _renderSteamPanel(_steamGames, false);
+    }
+
+    function _steamRefresh() { _steamGames = null; openSteamShelf(); }
+
+    function _steamSearch(q) {
+      _steamFilter = q.toLowerCase();
+      const filtered = (_steamGames || []).filter(g =>
+        g.name.toLowerCase().includes(_steamFilter)
+      );
+      _buildSteamGrid(filtered);
+    }
+
+    function _buildSteamGrid(games) {
+      const grid = document.getElementById('_sx-grid');
+      if (!grid) return;
+      if (!games || games.length === 0) {
+        grid.innerHTML = `<div style="grid-column:1/-1;color:rgba(0,160,255,.4);
+          text-align:center;padding:40px 0;font-size:12px">
+          ${_steamFilter ? 'No games match your search.' : 'No installed Steam games found.'}
+        </div>`;
+        return;
+      }
+      grid.innerHTML = games.map(g => `
+        <div style="border-radius:8px;overflow:hidden;background:rgba(0,8,24,.7);
+                    border:1px solid rgba(0,160,255,.15);cursor:pointer;
+                    transition:transform .15s,border-color .15s,box-shadow .15s"
+             onmouseover="this.style.transform='scale(1.05)';this.style.borderColor='rgba(0,200,255,.6)';this.style.boxShadow='0 0 18px rgba(0,160,255,.25)'"
+             onmouseout ="this.style.transform='';this.style.borderColor='rgba(0,160,255,.15)';this.style.boxShadow='none'">
+          <div style="position:relative">
+            <img src="${g.portrait}" loading="lazy"
+                 style="width:100%;display:block;aspect-ratio:2/3;object-fit:cover"
+                 onerror="this.parentElement.style.background='rgba(0,20,50,.9)';this.style.display='none'">
+          </div>
+          <div style="padding:7px 8px">
+            <div style="font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+                        color:#8cf;margin-bottom:2px;letter-spacing:.02em" title="${g.name.replace(/"/g,'&quot;')}">${g.name}</div>
+            ${g.sizeGb ? `<div style="font-size:9px;color:rgba(0,160,255,.35);margin-bottom:5px">${g.sizeGb} GB</div>` : '<div style="margin-bottom:5px"></div>'}
+            <button onclick="_steamLaunch('${g.appId}')"
+                    style="width:100%;background:rgba(0,190,70,.18);border:1px solid rgba(0,210,70,.35);
+                           color:#0e9;padding:4px 0;border-radius:5px;cursor:pointer;
+                           font-size:10px;letter-spacing:.05em;transition:background .12s"
+                    onmouseover="this.style.background='rgba(0,200,80,.32)'"
+                    onmouseout ="this.style.background='rgba(0,190,70,.18)'">
+              ▶ PLAY
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function _renderSteamPanel(games, showError) {
+      const overlay = document.getElementById('webpanel-overlay');
+      const frame   = document.getElementById('webpanel-frame');
+      if (!overlay || !frame) return;
+
+      const isLoading = games === null;
+      const count     = isLoading ? '' : `${games.length} game${games.length !== 1 ? 's' : ''}`;
+
+      frame.srcdoc = `<!DOCTYPE html><html><head>
+        <style>
+          *{margin:0;padding:0;box-sizing:border-box}
+          body{background:#050d1a;font-family:'Segoe UI',sans-serif;color:#0af;
+               padding:16px;min-height:100vh;overflow-x:hidden}
+          #_sx-search{
+            background:rgba(0,160,255,.08);border:1px solid rgba(0,160,255,.25);
+            color:#0af;padding:6px 12px;border-radius:6px;font-size:11px;
+            width:100%;outline:none;transition:border-color .2s}
+          #_sx-search:focus{border-color:rgba(0,200,255,.55)}
+          #_sx-search::placeholder{color:rgba(0,160,255,.3)}
+          #_sx-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:12px}
+          ::-webkit-scrollbar{width:4px}
+          ::-webkit-scrollbar-track{background:transparent}
+          ::-webkit-scrollbar-thumb{background:rgba(0,160,255,.25);border-radius:2px}
+        </style>
+      </head><body>
+        <!-- Header -->
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+          <span style="font-size:14px;letter-spacing:.12em;font-weight:600">🎮 STEAM LIBRARY</span>
+          <span id="_sx-count" style="font-size:10px;color:rgba(0,160,255,.4);margin-left:4px">${count}</span>
+          <button onclick="window.parent._steamRefresh()"
+                  style="margin-left:auto;background:rgba(0,160,255,.1);border:1px solid rgba(0,160,255,.3);
+                         color:#0af;padding:4px 10px;border-radius:5px;cursor:pointer;font-size:10px"
+                  title="Re-scan library">↺ Refresh</button>
+        </div>
+        <!-- Search -->
+        <div style="margin-bottom:14px">
+          <input id="_sx-search" type="text" placeholder="Search games…"
+                 oninput="window.parent._steamSearch(this.value)">
+        </div>
+        <!-- Grid -->
+        <div id="_sx-grid">
+          ${isLoading
+            ? `<div style="grid-column:1/-1;text-align:center;padding:60px 0;
+                           color:rgba(0,160,255,.45);font-size:12px;letter-spacing:.08em">
+                 Scanning Steam library…
+               </div>`
+            : ''
+          }
+        </div>
+      </body></html>`;
+
+      overlay.style.display = 'flex';
+
+      // Populate grid after frame loads
+      if (!isLoading) {
+        frame.onload = () => {
+          _buildSteamGrid(games);
+          frame.onload = null;
+        };
+      }
+    }
+
+    // Callable from iframe buttons via window.parent
+    window._steamLaunch = async function(appId) {
+      if (window.electronAPI) {
+        const r = await window.electronAPI.launchSteamGame(appId);
+        if (r.error) { showToast('⚠ ' + r.error); return; }
+      } else {
+        window.open(`steam://run/${appId}`, '_self');
+      }
+      showToast('🎮 Launching game…');
+    };
+    window._steamRefresh = _steamRefresh;
+    window._steamSearch  = _steamSearch;
+    window._buildSteamGrid = _buildSteamGrid;
+
+    // ===============================================================
     // INIT
     // ===============================================================
     async function initApp() {

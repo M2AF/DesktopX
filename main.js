@@ -1,12 +1,14 @@
 /**
  * DesktopX — Electron Main Process
  */
-const { app, BrowserWindow, ipcMain, dialog, shell, Tray, Menu, nativeImage, protocol } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, Tray, Menu, nativeImage, protocol, session } = require('electron');
 const path  = require('path');
 const fs    = require('fs');
 const http  = require('http');
 const https = require('https');
 const url   = require('url');
+const { execSync } = require('child_process');
+const os    = require('os');
 
 const IS_DEV    = !app.isPackaged;
 const APP_ROOT  = path.join(__dirname, 'app');
@@ -176,6 +178,94 @@ ipcMain.handle('fs:readText', async (_e, filePath) => {
 });
 ipcMain.handle('shell:showItemInFolder', (_e, filePath) => shell.showItemInFolder(filePath));
 
+// ── IPC: Steam library scanner ────────────────────────────────────────────────
+ipcMain.handle('steam:getLibrary', async () => {
+  try {
+    let steamPath = null;
+
+    if (process.platform === 'win32') {
+      try {
+        const out = execSync(
+          'reg query "HKCU\\Software\\Valve\\Steam" /v SteamPath',
+          { encoding: 'utf-8' }
+        );
+        const match = out.match(/SteamPath\s+REG_SZ\s+(.+)/i);
+        if (match) steamPath = match[1].trim().replace(/\//g, '\\');
+      } catch {
+        // Try 32-bit registry fallback
+        try {
+          const out = execSync(
+            'reg query "HKLM\\Software\\Wow6432Node\\Valve\\Steam" /v InstallPath',
+            { encoding: 'utf-8' }
+          );
+          const match = out.match(/InstallPath\s+REG_SZ\s+(.+)/i);
+          if (match) steamPath = match[1].trim();
+        } catch { return { error: 'Steam installation not found in registry.' }; }
+      }
+    } else if (process.platform === 'linux') {
+      const candidates = [
+        path.join(os.homedir(), '.steam', 'steam'),
+        path.join(os.homedir(), '.local', 'share', 'Steam'),
+      ];
+      steamPath = candidates.find(p => fs.existsSync(p)) || null;
+    } else if (process.platform === 'darwin') {
+      steamPath = path.join(os.homedir(), 'Library', 'Application Support', 'Steam');
+    }
+
+    if (!steamPath || !fs.existsSync(steamPath)) {
+      return { error: 'Steam folder not found. Is Steam installed?' };
+    }
+
+    // Collect all steamapps library folders
+    const libraryFolders = [path.join(steamPath, 'steamapps')];
+    const vdfPath = path.join(steamPath, 'steamapps', 'libraryfolders.vdf');
+    if (fs.existsSync(vdfPath)) {
+      const vdf = fs.readFileSync(vdfPath, 'utf-8');
+      for (const m of vdf.matchAll(/"path"\s+"([^"]+)"/gi)) {
+        const libApps = path.join(m[1].replace(/\\\\/g, '\\'), 'steamapps');
+        if (fs.existsSync(libApps) && !libraryFolders.includes(libApps))
+          libraryFolders.push(libApps);
+      }
+    }
+
+    // Scan every library for appmanifest_*.acf files
+    const games = [];
+    for (const libPath of libraryFolders) {
+      let entries;
+      try { entries = fs.readdirSync(libPath); } catch { continue; }
+      for (const entry of entries) {
+        if (!entry.startsWith('appmanifest_') || !entry.endsWith('.acf')) continue;
+        try {
+          const acf    = fs.readFileSync(path.join(libPath, entry), 'utf-8');
+          const appId  = (acf.match(/"appid"\s+"(\d+)"/i)   || [])[1];
+          const name   = (acf.match(/"name"\s+"([^"]+)"/i)  || [])[1];
+          const sizeKb = (acf.match(/"SizeOnDisk"\s+"(\d+)"/i) || [])[1];
+          if (appId && name) {
+            games.push({
+              appId,
+              name,
+              sizeGb:  sizeKb ? (parseInt(sizeKb) / 1e9).toFixed(1) : null,
+              header:  `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/header.jpg`,
+              portrait:`https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/library_600x900.jpg`,
+            });
+          }
+        } catch { /* skip malformed acf */ }
+      }
+    }
+
+    // Sort alphabetically
+    games.sort((a, b) => a.name.localeCompare(b.name));
+    return { games };
+  } catch (e) { return { error: e.message }; }
+});
+
+ipcMain.handle('steam:launchGame', async (_e, appId) => {
+  try {
+    await shell.openExternal(`steam://run/${appId}`);
+    return { success: true };
+  } catch (e) { return { error: e.message }; }
+});
+
 // ── IPC: Window controls ─────────────────────────────────────────────────────
 ipcMain.on('window:minimize', () => mainWindow?.minimize());
 ipcMain.on('window:maximize', () => mainWindow?.isMaximized() ? mainWindow.unmaximize() : mainWindow?.maximize());
@@ -183,6 +273,29 @@ ipcMain.on('window:close',    () => { app.isQuiting = true; mainWindow?.close();
 
 // ── App lifecycle ────────────────────────────────────────────────────────────
 app.whenReady().then(() => {
+  // ── YouTube API referer spoof ───────────────────────────────────────────────
+  // Injects the authorized origin so your locked API key is always accepted.
+  // Change AUTHORIZED_ORIGIN to match the domain you registered in Google Console.
+  const AUTHORIZED_ORIGIN = 'https://desktopx.org';
+  session.defaultSession.webRequest.onBeforeSendHeaders(
+    { urls: ['https://*.googleapis.com/*', 'https://*.youtube.com/*', 'https://www.youtube.com/*'] },
+    (details, callback) => {
+      details.requestHeaders['Referer'] = AUTHORIZED_ORIGIN + '/';
+      details.requestHeaders['Origin']  = AUTHORIZED_ORIGIN;
+      callback({ requestHeaders: details.requestHeaders });
+    }
+  );
+  // Strip X-Frame-Options so YouTube embeds are never blocked
+  session.defaultSession.webRequest.onHeadersReceived(
+    { urls: ['https://www.youtube.com/embed/*', 'https://*.youtube.com/*'] },
+    (details, callback) => {
+      const h = details.responseHeaders;
+      delete h['x-frame-options'];
+      delete h['X-Frame-Options'];
+      callback({ cancel: false, responseHeaders: h });
+    }
+  );
+
   startProxyServer();
   createWindow();
   createTray();

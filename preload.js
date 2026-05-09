@@ -16,6 +16,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   minimize:       ()         => ipcRenderer.send('window:minimize'),
   maximize:       ()         => ipcRenderer.send('window:maximize'),
   close:          ()         => ipcRenderer.send('window:close'),
+  // Steam
+  getSteamLibrary: ()        => ipcRenderer.invoke('steam:getLibrary'),
+  launchSteamGame: (appId)   => ipcRenderer.invoke('steam:launchGame', appId),
   // Environment
   isElectron: true,
   platform:   process.platform,
