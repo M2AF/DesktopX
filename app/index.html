@@ -1216,7 +1216,8 @@
       flex-shrink: 0
     }
 
-    #steam-modal-refresh {
+    #steam-modal-refresh,
+    #steam-modal-import {
       background: rgba(0, 160, 60, 0.12);
       border: 1px solid rgba(0, 160, 60, 0.3);
       color: #44dd88;
@@ -1229,7 +1230,10 @@
       transition: background .14s
     }
 
-    #steam-modal-refresh:hover { background: rgba(0,160,60,0.25) }
+    #steam-modal-refresh:hover,
+    #steam-modal-import:hover { background: rgba(0,160,60,0.25) }
+
+    #steam-modal-import { display: none }
     #steam-provider-tabs {
       display: flex;
       align-items: center;
@@ -2472,10 +2476,11 @@
         <button class="steam-provider-tab" data-provider="gog" onclick="setGameProvider('gog')">GOG</button>
         <button class="steam-provider-tab" data-provider="epic" onclick="setGameProvider('epic')">Epic</button>
       </div>
+      <button id="steam-modal-import" onclick="importWebGameFolders(true)" title="Pick browser game folders">Folders</button>
       <button id="steam-modal-refresh" onclick="refreshSteamLibrary()">↺ Refresh</button>
     </div>
     <div id="steam-modal-body">
-      <div id="steam-modal-status">Click Refresh to scan Steam, Xbox, GOG, and Epic.</div>
+      <div id="steam-modal-status">Electron scans automatically. Web mode uses selected folders and browser-safe launch links.</div>
       <div id="steam-game-grid" style="display:none"></div>
     </div>
   </div>
@@ -6629,12 +6634,25 @@
 
     // ===============================================================
     // GAMES LIBRARY MODAL
+    // Electron remains the full-power scanner. Browser mode falls back to
+    // user-picked folders, IndexedDB cache, and URI-protocol launches.
     // ===============================================================
     let _gameLibrary = null;
     let _gameFilter = '';
     let _gameProvider = 'all';
     let _renderedGames = [];
     const GAME_PROVIDERS = { all: 'All', steam: 'Steam', xbox: 'Xbox', gog: 'GOG', epic: 'Epic' };
+    const WEB_GAME_CACHE_KEY = 'webGameLibrary_v1';
+    const WEB_GAME_HANDLES_KEY = 'webGameLibraryHandles_v1';
+
+    function hasElectronGameApi() {
+      return !!(window.electronAPI?.getGameLibraries || window.electronAPI?.getSteamLibrary);
+    }
+
+    function updateGameModeControls() {
+      const importBtn = $('steam-modal-import');
+      if (importBtn) importBtn.style.display = hasElectronGameApi() ? 'none' : 'inline-flex';
+    }
 
     function openSteamModal() {
       const modal = $('steam-modal');
@@ -6645,8 +6663,11 @@
       const search = $('steam-modal-search');
       if (search) search.value = _gameFilter;
       updateGameProviderTabs();
-      if (_gameLibrary === null) refreshSteamLibrary();
-      else renderSteamGames(_gameLibrary);
+      updateGameModeControls();
+      if (_gameLibrary === null) {
+        if (hasElectronGameApi()) refreshSteamLibrary();
+        else loadCachedWebGameLibrary();
+      } else renderSteamGames(_gameLibrary);
       setTimeout(() => search?.focus(), 60);
       UIsound('open');
     }
@@ -6669,12 +6690,12 @@
     }
 
     async function refreshSteamLibrary() {
+      updateGameModeControls();
       const status = $('steam-modal-status');
       const grid = $('steam-game-grid');
       const count = $('steam-modal-count');
       const refreshBtn = $('steam-modal-refresh');
       const search = $('steam-modal-search');
-      if (status) { status.style.display = 'block'; status.textContent = 'Scanning Steam, Xbox, GOG, and Epic...'; }
       if (grid) { grid.style.display = 'none'; grid.innerHTML = ''; }
       if (count) count.textContent = '';
       if (search) search.value = '';
@@ -6683,14 +6704,15 @@
       updateGameProviderTabs();
       if (refreshBtn) { refreshBtn.disabled = true; refreshBtn.textContent = 'Scanning...'; }
 
-      if (!window.electronAPI?.getGameLibraries && !window.electronAPI?.getSteamLibrary) {
-        if (status) status.textContent = 'Game library scan requires the DesktopX Electron app.';
-        if (refreshBtn) { refreshBtn.disabled = false; refreshBtn.textContent = '↺ Refresh'; }
-        showToast('Game library scan requires the Electron app');
-        return;
-      }
-
       try {
+        if (!hasElectronGameApi()) {
+          if (status) { status.style.display = 'block'; status.textContent = 'Scanning selected browser folders...'; }
+          _gameLibrary = await scanWebGameLibraries(false);
+          renderSteamGames(_gameLibrary);
+          return;
+        }
+
+        if (status) { status.style.display = 'block'; status.textContent = 'Scanning Steam, Xbox, GOG, and Epic...'; }
         let result;
         if (window.electronAPI?.getGameLibraries) result = await window.electronAPI.getGameLibraries();
         else result = await window.electronAPI.getSteamLibrary();
@@ -6705,6 +6727,35 @@
         showToast('Game scan failed: ' + (e?.message || e));
       } finally {
         if (refreshBtn) { refreshBtn.disabled = false; refreshBtn.textContent = '↺ Refresh'; }
+      }
+    }
+
+    async function loadCachedWebGameLibrary() {
+      const status = $('steam-modal-status');
+      try {
+        const cached = await DB.get(WEB_GAME_CACHE_KEY);
+        if (Array.isArray(cached) && cached.length) {
+          _gameLibrary = cached.map(normalizeGameCard);
+          renderSteamGames(_gameLibrary);
+          return;
+        }
+      } catch { /* cache unavailable */ }
+      _gameLibrary = [];
+      if (status) {
+        status.style.display = 'block';
+        status.textContent = 'Web mode: click Folders to pick game library folders, then Refresh to rescan them.';
+      }
+    }
+
+    async function importWebGameFolders(forcePicker = true) {
+      if (hasElectronGameApi()) { refreshSteamLibrary(); return; }
+      try {
+        _gameLibrary = await scanWebGameLibraries(forcePicker);
+        renderSteamGames(_gameLibrary);
+      } catch (e) {
+        const status = $('steam-modal-status');
+        if (status) { status.style.display = 'block'; status.textContent = e?.message || String(e); }
+        showToast(e?.message || String(e));
       }
     }
 
@@ -6760,7 +6811,9 @@
 
       if (!allGames.length) {
         status.style.display = 'block';
-        status.textContent = 'No installed games found. Click Refresh to scan Steam, Xbox, GOG, and Epic.';
+        status.textContent = hasElectronGameApi()
+          ? 'No installed games found. Click Refresh to scan Steam, Xbox, GOG, and Epic.'
+          : 'No web games cached yet. Click Folders to pick readable game folders.';
         grid.style.display = 'none';
         grid.innerHTML = '';
         return;
@@ -6819,17 +6872,10 @@
         if (window.electronAPI?.launchGame) {
           const result = await window.electronAPI.launchGame(game);
           if (result?.error) throw new Error(result.error);
-        } else if (game.provider === 'steam' || game.appId) {
-          const appId = String(game.appId || game.id || '').replace(/[^0-9]/g, '');
-          if (!appId) throw new Error('Steam app id missing');
-          if (window.electronAPI?.launchSteamGame) {
-            const result = await window.electronAPI.launchSteamGame(appId);
-            if (result?.error) throw new Error(result.error);
-          } else {
-            window.location.href = `steam://run/${appId}`;
-          }
         } else {
-          throw new Error('Launching this store requires the DesktopX Electron app');
+          const url = getWebGameLaunchUrl(game);
+          if (!url) throw new Error(`${game.providerLabel || GAME_PROVIDERS[game.provider] || 'This store'} needs Electron or the desktop bridge to launch from web.`);
+          window.location.href = url;
         }
         showToast(`Launching ${game.providerLabel || GAME_PROVIDERS[game.provider] || 'game'} game...`);
       } catch (e) {
@@ -6837,9 +6883,234 @@
       }
     }
 
+    function getWebGameLaunchUrl(game) {
+      const provider = String(game?.provider || '').toLowerCase();
+      const target = game?.launchTarget || {};
+      if (provider === 'steam') {
+        const appId = String(game.appId || game.id || '').replace(/[^0-9]/g, '');
+        return appId ? `steam://run/${appId}` : '';
+      }
+      if (provider === 'epic') {
+        const appName = target.appName || game.id || '';
+        if (!appName) return '';
+        const encodedTriple = target.namespaceId && target.catalogItemId
+          ? `${encodeURIComponent(target.namespaceId)}%3A${encodeURIComponent(target.catalogItemId)}%3A${encodeURIComponent(appName)}`
+          : encodeURIComponent(appName);
+        return `com.epicgames.launcher://apps/${encodedTriple}?action=launch&silent=true`;
+      }
+      if (provider === 'gog') return target.webLaunchUrl || '';
+      return '';
+    }
+
+    async function scanWebGameLibraries(forcePicker = false) {
+      if (!('showDirectoryPicker' in window)) throw new Error('Browser folder access requires Chrome or Edge.');
+      let handles = await getStoredWebGameHandles();
+      if (forcePicker || !Object.keys(handles).length) handles = await pickWebGameFolders(handles);
+      if (!Object.keys(handles).length) {
+        const cached = await DB.get(WEB_GAME_CACHE_KEY);
+        return Array.isArray(cached) ? cached.map(normalizeGameCard) : [];
+      }
+
+      const batches = await Promise.all([
+        handles.steam ? scanWebSteamLibrary(handles.steam) : [],
+        handles.xbox ? scanWebXboxLibrary(handles.xbox) : [],
+        handles.gog ? scanWebGogLibrary(handles.gog) : [],
+        handles.epic ? scanWebEpicLibrary(handles.epic) : [],
+      ]);
+      const games = uniqueGameCards(batches.flat()).map(normalizeGameCard);
+      await DB.set(WEB_GAME_CACHE_KEY, games);
+      return games;
+    }
+
+    async function getStoredWebGameHandles() {
+      const stored = await DB.get(WEB_GAME_HANDLES_KEY);
+      if (!stored || typeof stored !== 'object') return {};
+      const ready = {};
+      for (const [provider, handle] of Object.entries(stored)) {
+        if (handle && await ensureReadPermission(handle)) ready[provider] = handle;
+      }
+      return ready;
+    }
+
+    async function ensureReadPermission(handle) {
+      try {
+        if (!handle?.queryPermission) return true;
+        let perm = await handle.queryPermission({ mode: 'read' });
+        if (perm === 'granted') return true;
+        if (perm === 'prompt' && handle.requestPermission) perm = await handle.requestPermission({ mode: 'read' });
+        return perm === 'granted';
+      } catch { return false; }
+    }
+
+    async function pickWebGameFolders(existing = {}) {
+      const picks = { ...existing };
+      alert('DesktopX Web will ask for game folders one store at a time. Cancel any store you do not use.');
+      for (const item of [
+        ['steam', 'Steam steamapps folder or Steam library folder'],
+        ['xbox', 'XboxGames folder'],
+        ['gog', 'GOG games folder or a single GOG game folder'],
+        ['epic', 'Epic Manifests folder or EpicGamesLauncher folder'],
+      ]) {
+        const [provider, label] = item;
+        if (!confirm(`Select ${label}?`)) continue;
+        try {
+          const handle = await window.showDirectoryPicker({ id: `desktopx-${provider}-library`, mode: 'read' });
+          if (handle && await ensureReadPermission(handle)) picks[provider] = handle;
+        } catch (e) {
+          if (e?.name !== 'AbortError') console.warn('Game folder pick failed:', provider, e);
+        }
+      }
+      await DB.set(WEB_GAME_HANDLES_KEY, picks);
+      return picks;
+    }
+
+    async function entriesArray(handle) {
+      const out = [];
+      try { for await (const entry of handle.entries()) out.push(entry); } catch { }
+      return out;
+    }
+
+    async function getDirIfExists(handle, name) {
+      try { return await handle.getDirectoryHandle(name); } catch { return null; }
+    }
+
+    async function getFileTextIfExists(handle, name) {
+      try { return await (await handle.getFileHandle(name)).getFile().then(file => file.text()); } catch { return ''; }
+    }
+
+    async function findNestedDir(root, paths) {
+      for (const parts of paths) {
+        let cur = root;
+        let ok = true;
+        for (const part of parts) {
+          cur = await getDirIfExists(cur, part);
+          if (!cur) { ok = false; break; }
+        }
+        if (ok && cur) return cur;
+      }
+      return null;
+    }
+
+    function parseAcfValue(text, key) {
+      return (String(text || '').match(new RegExp('"' + key + '"\\s+"([^"\\n]+)"', 'i')) || [])[1] || '';
+    }
+
+    async function scanWebSteamLibrary(root) {
+      const candidates = [root, await getDirIfExists(root, 'steamapps')].filter(Boolean);
+      const games = [];
+      for (const steamapps of candidates) {
+        for (const [name, handle] of await entriesArray(steamapps)) {
+          if (handle.kind !== 'file' || !/^appmanifest_\d+\.acf$/i.test(name)) continue;
+          try {
+            const text = await (await handle.getFile()).text();
+            const appId = parseAcfValue(text, 'appid');
+            const gameName = parseAcfValue(text, 'name');
+            const sizeKb = parseAcfValue(text, 'SizeOnDisk');
+            if (!appId || !gameName) continue;
+            games.push(normalizeGameCard({
+              provider: 'steam', providerLabel: 'Steam', id: appId, appId, name: gameName,
+              sizeGb: sizeKb ? (parseInt(sizeKb, 10) / 1e9).toFixed(1) : null,
+              header: `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/header.jpg`,
+              portrait: `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/library_600x900.jpg`,
+              launchType: 'steam', launchTarget: { appId }
+            }));
+          } catch { /* skip malformed manifest */ }
+        }
+      }
+      return uniqueGameCards(games);
+    }
+
+    async function scanWebEpicLibrary(root) {
+      const nested = await Promise.all([
+        Promise.resolve(root),
+        findNestedDir(root, [['Data', 'Manifests']]),
+        findNestedDir(root, [['EpicGamesLauncher', 'Data', 'Manifests']]),
+        findNestedDir(root, [['Epic', 'EpicGamesLauncher', 'Data', 'Manifests']]),
+      ]);
+      const dirs = nested.filter(Boolean);
+      const games = [];
+      for (const manifestDir of dirs) {
+        for (const [name, handle] of await entriesArray(manifestDir)) {
+          if (handle.kind !== 'file' || !name.toLowerCase().endsWith('.item')) continue;
+          try {
+            const manifest = JSON.parse(await (await handle.getFile()).text());
+            const appName = manifest.AppName || manifest.AppId || '';
+            const catalogItemId = manifest.CatalogItemId || manifest.MainGameCatalogItemId || '';
+            const namespaceId = manifest.NamespaceId || manifest.CatalogNamespace || '';
+            const gameName = manifest.DisplayName || manifest.AppName || appName;
+            if (!gameName || !appName && !catalogItemId) continue;
+            games.push(normalizeGameCard({
+              provider: 'epic', providerLabel: 'Epic', id: appName || catalogItemId, name: gameName,
+              launchType: 'epic', launchTarget: { appName, catalogItemId, namespaceId }
+            }));
+          } catch { /* skip malformed item */ }
+        }
+      }
+      return uniqueGameCards(games);
+    }
+
+    function parseXboxConfigName(config, fallback) {
+      const title = String(config || '').match(/<Title[^>]*(?:Name|TitleName|DisplayName)="([^"]+)"/i) || String(config || '').match(/DisplayName="([^"]+)"/i);
+      return title?.[1] || fallback;
+    }
+
+    async function scanXboxGameDir(dir, fallbackName) {
+      const content = await getDirIfExists(dir, 'Content') || dir;
+      const config = await getFileTextIfExists(content, 'MicrosoftGame.config');
+      if (!config && content === dir) return null;
+      const name = parseXboxConfigName(config, fallbackName || dir.name || 'Xbox Game');
+      const identity = (config.match(/<Identity[^>]*Name="([^"]+)"/i) || [])[1] || name;
+      return normalizeGameCard({
+        provider: 'xbox', providerLabel: 'Xbox', id: identity, name,
+        launchType: 'web-unsupported', launchTarget: {}
+      });
+    }
+
+    async function scanWebXboxLibrary(root) {
+      const games = [];
+      const rootGame = await scanXboxGameDir(root, root.name);
+      if (rootGame) games.push(rootGame);
+      for (const [name, handle] of await entriesArray(root)) {
+        if (handle.kind !== 'directory') continue;
+        const game = await scanXboxGameDir(handle, name);
+        if (game) games.push(game);
+      }
+      return games;
+    }
+
+    async function readGogInfoFromDir(dir, fallbackName) {
+      for (const [name, handle] of await entriesArray(dir)) {
+        if (handle.kind !== 'file' || !/^goggame-.*\.info$/i.test(name)) continue;
+        try {
+          const info = JSON.parse(await (await handle.getFile()).text());
+          const gameId = String(info.gameId || info.rootGameId || info.id || '').trim();
+          const gameName = info.name || info.title || fallbackName || dir.name || 'GOG Game';
+          return normalizeGameCard({
+            provider: 'gog', providerLabel: 'GOG', id: gameId || gameName, name: gameName,
+            launchType: gameId ? 'gog-web' : 'web-unsupported',
+            launchTarget: { webLaunchUrl: gameId ? `goggalaxy://openGameView/${encodeURIComponent(gameId)}` : '' }
+          });
+        } catch { /* skip malformed info */ }
+      }
+      return null;
+    }
+
+    async function scanWebGogLibrary(root) {
+      const games = [];
+      const rootGame = await readGogInfoFromDir(root, root.name);
+      if (rootGame) games.push(rootGame);
+      for (const [name, handle] of await entriesArray(root)) {
+        if (handle.kind !== 'directory') continue;
+        const game = await readGogInfoFromDir(handle, name);
+        if (game) games.push(game);
+      }
+      return games;
+    }
+
     window.openSteamModal = openSteamModal;
     window.closeSteamModal = closeSteamModal;
     window.refreshSteamLibrary = refreshSteamLibrary;
+    window.importWebGameFolders = importWebGameFolders;
     window.filterSteamGames = filterSteamGames;
     window.setGameProvider = setGameProvider;
     window.launchRenderedGame = launchRenderedGame;
