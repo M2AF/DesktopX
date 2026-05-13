@@ -709,6 +709,92 @@
       }
     }
 
+    /* -- MODS PANEL -- */
+    #mods-panel {
+      position: fixed;
+      top: 30px;
+      left: 0;
+      width: 240px;
+      height: calc(100vh - 78px);
+      background: rgba(0, 8, 28, 0.97);
+      border-right: 1px solid rgba(0, 140, 255, 0.22);
+      transform: translateX(-100%);
+      transition: transform .3s;
+      z-index: 810;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 0
+    }
+    #mods-panel.open { transform: none }
+    #mods-panel h2 {
+      color: #0af;
+      font-size: 12px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+      font-weight: 500
+    }
+    #mods-import-btn {
+      width: 100%;
+      background: rgba(0,120,255,0.1);
+      border: 1px dashed rgba(0,140,255,0.3);
+      color: rgba(0,180,255,0.6);
+      padding: 8px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 10px;
+      text-align: center;
+      margin-bottom: 12px;
+      transition: all .13s
+    }
+    #mods-import-btn:hover { background: rgba(0,140,255,0.18); color: #6cf }
+    #mods-home-btn {
+      width: 100%;
+      background: rgba(0,100,255,0.1);
+      border: 1px solid rgba(0,140,255,0.25);
+      color: #6cf;
+      padding: 7px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 10px;
+      text-align: center;
+      margin-bottom: 14px;
+      transition: all .13s
+    }
+    #mods-home-btn:hover { background: rgba(0,140,255,0.2) }
+    #mods-list { flex: 1 }
+    .mods-empty {
+      color: rgba(0,160,255,0.35);
+      font-size: 10px;
+      text-align: center;
+      padding: 20px 0;
+      line-height: 1.9
+    }
+    .mod-card {
+      background: rgba(0,140,255,0.05);
+      border: 1px solid rgba(0,140,255,0.14);
+      border-radius: 6px;
+      padding: 9px 10px;
+      margin-bottom: 7px
+    }
+    .mod-card-active {
+      border-color: rgba(0,200,255,0.4);
+      background: rgba(0,160,255,0.09)
+    }
+    .mod-card-name { color: #88ccff; font-size: 11px; margin-bottom: 2px }
+    .mod-card-id   { color: rgba(0,180,255,0.38); font-size: 9px; font-family: monospace; margin-bottom: 7px }
+    .mod-card-btns { display: flex; gap: 6px }
+    .mod-go-btn  { flex:1; font-size:10px; color:#6cf  !important }
+    .mod-del-btn { font-size:10px; color:#f86 !important; border-color: rgba(255,80,40,0.3) !important }
+    #tb-mods-btn { color: #ffaa44 !important; border-color: rgba(255,160,0,0.3) !important }
+    #tb-mods-btn.tb-mods-active {
+      background: rgba(255,140,0,0.18) !important;
+      border-color: rgba(255,160,0,0.55) !important;
+      box-shadow: 0 0 10px rgba(255,140,0,0.2) !important
+    }
+
     /* -- SETTINGS -- */
     #settings {
       position: fixed;
@@ -2380,6 +2466,8 @@
       <div class="sm-item" onclick="exportLayoutFile();toggleStartMenu()"><span class="sm-ico">🫆</span>Export Layout
       </div>
       <div class="sm-sep"></div>
+      <div class="sm-item" onclick="toggleModsPanel();toggleStartMenu()"><span class="sm-ico">⬡</span>Mod Rooms</div>
+      <div class="sm-sep"></div>
       <div class="sm-item" onclick="toggleSettings();toggleStartMenu()"><span class="sm-ico">⚙️</span>Settings</div>
     </div>
   </div>
@@ -2393,6 +2481,7 @@
     <button class="tb" onclick="openFolder()" style="color:#44ccff;border-color:rgba(0,180,255,0.25)">📁 Open
       Folder</button>
     <button class="tb tb-web" onclick="openURLDialog()">🌐 Web Player</button>
+    <button id="tb-mods-btn" class="tb" onclick="toggleModsPanel()" title="Mod Rooms">⬡ Mods</button>
     <button class="tb" onclick="toggleSettings()">⚙️ Settings</button>
 
     <!-- -- NOW PLAYING AUDIO -- -->
@@ -2474,6 +2563,15 @@
       <input type="file" id="layout-import" accept=".json" style="display:none" onchange="importLayoutFile(this)">
     </div>
   </div>
+
+  <!-- ══ MODS PANEL ══ -->
+  <div id="mods-panel">
+    <h2>⬡ Mod Rooms</h2>
+    <button id="mods-home-btn" onclick="goRoom('home');toggleModsPanel()">⌂ Back to Home</button>
+    <button id="mods-import-btn" onclick="document.getElementById('mod-file-input').click()">+ Import .dxroom File</button>
+    <div id="mods-list"></div>
+  </div>
+  <input type="file" id="mod-file-input" accept=".dxroom,.json" style="display:none" onchange="importCustomRoom(this)">
 
   <!-- File Preview (draggable) -->
   <div id="preview">
@@ -3249,8 +3347,120 @@
     };
 
     // ===============================================================
-    // ROOM BUILDER - geometry in a sub-group so home fixtures survive
+    // MOD ROOMS — custom room definitions loaded from .dxroom files
     // ===============================================================
+    let CUSTOM_ROOMS = {};  // { roomId: roomDef } — mirrors what's in ROOMS
+    let modsPanelOpen = false;
+
+    /** Normalise a raw .dxroom export into the shape buildRoom() expects */
+    function buildRoomDefFromMod(def) {
+      return {
+        name:      def.name      || 'Custom Room',
+        sz:        def.sz        || 40,
+        wallH:     def.wallH     || 14,
+        fog:       def.fog       ?? 0x000510,
+        fogD:      def.fogD      ?? 0.008,
+        sky:       def.sky       || [[0, '#000510'], [1, '#000820']],
+        stars:     def.stars     !== false,
+        ambient:   def.ambient   || [0x001028, 0.6],
+        lights:    def.lights    || [],
+        floor:     def.floor     || [0x050520, 0x010110],
+        wall:      def.wall      || [0x060830, 0x020215],
+        grid:      def.grid      ?? 0x001844,
+        accent:    def.accent    ?? 0x0066ff,
+        portals:   def.portals   || [],
+        icons:     def.icons     || [],
+        iconTypes: def.iconTypes || [],
+        iconWall:  def.iconWall  || 'front'
+      };
+    }
+
+    /** Import a .dxroom file chosen by the user */
+    async function importCustomRoom(input) {
+      const file = input.files[0]; if (!file) return;
+      try {
+        const text = await file.text();
+        const def  = JSON.parse(text);
+        if (!def.name) { showToast('⚠ Invalid room: missing name'); return; }
+        if (!def.id)   { showToast('⚠ Invalid room: missing id');   return; }
+        if (def.id === 'home') { showToast('⚠ "home" is a reserved room ID'); return; }
+
+        const roomId = def.id;
+        const roomDef = buildRoomDefFromMod(def);
+
+        CUSTOM_ROOMS[roomId] = def;      // keep raw def for save.json bundling
+        ROOMS[roomId]        = roomDef;  // register so buildRoom() can use it
+
+        await DB.set('custom_rooms', JSON.stringify(CUSTOM_ROOMS));
+        renderModsList();
+        showToast(`⬡ Room "${def.name}" installed`);
+        goRoom(roomId);
+      } catch (e) {
+        console.error('[Mods] importCustomRoom failed:', e);
+        showToast('⚠ Failed to load mod: ' + e.message);
+      }
+      input.value = '';
+    }
+
+    /** Reload persisted custom rooms from IndexedDB on startup */
+    async function loadPersistentMods() {
+      try {
+        const raw = await DB.get('custom_rooms');
+        if (!raw) return;
+        const saved = JSON.parse(raw);
+        if (typeof saved !== 'object') return;
+        CUSTOM_ROOMS = saved;
+        for (const [id, def] of Object.entries(CUSTOM_ROOMS)) {
+          ROOMS[id] = buildRoomDefFromMod(def);
+        }
+        console.log('[Mods] Rehydrated', Object.keys(CUSTOM_ROOMS).length, 'custom room(s)');
+      } catch (e) {
+        console.warn('[Mods] loadPersistentMods failed:', e);
+      }
+    }
+
+    /** Remove a custom room by id */
+    async function removeCustomRoom(id) {
+      if (currentRoom === id) goRoom('home');
+      delete CUSTOM_ROOMS[id];
+      delete ROOMS[id];
+      await DB.set('custom_rooms', JSON.stringify(CUSTOM_ROOMS));
+      renderModsList();
+      showToast('Room removed');
+    }
+
+    /** Rebuild the mod room list inside the panel */
+    function renderModsList() {
+      const el = document.getElementById('mods-list'); if (!el) return;
+      el.innerHTML = '';
+      const ids = Object.keys(CUSTOM_ROOMS);
+      if (!ids.length) {
+        el.innerHTML = '<p class="mods-empty">No rooms installed yet.<br>Import a .dxroom file to get started.</p>';
+        return;
+      }
+      ids.forEach(id => {
+        const def = CUSTOM_ROOMS[id];
+        const active = (currentRoom === id);
+        const card = document.createElement('div');
+        card.className = 'mod-card' + (active ? ' mod-card-active' : '');
+        card.innerHTML = `
+          <div class="mod-card-name">${def.name}</div>
+          <div class="mod-card-id">${id}</div>
+          <div class="mod-card-btns">
+            <button class="tb mod-go-btn" onclick="goRoom('${id}');renderModsList()">GO →</button>
+            <button class="tb mod-del-btn" onclick="removeCustomRoom('${id}')">✕</button>
+          </div>`;
+        el.appendChild(card);
+      });
+    }
+
+    /** Toggle the Mods side-panel */
+    function toggleModsPanel() {
+      modsPanelOpen = !modsPanelOpen;
+      document.getElementById('mods-panel').classList.toggle('open', modsPanelOpen);
+      document.getElementById('tb-mods-btn').classList.toggle('tb-mods-active', modsPanelOpen);
+      if (modsPanelOpen) renderModsList();
+    }
     let particleSys = null, sceneLights = [];
     let roomGeoGroup = null; // only the floor/walls/grid/icons - cleared on rebuild
 
@@ -3288,7 +3498,7 @@
       const al = new THREE.AmbientLight(R.ambient[0], R.ambient[1]); scene.add(al); sceneLights.push(al);
       R.lights.forEach(ld => { const l = new THREE.PointLight(ld.c, ld.i, 35); l.position.set(...ld.p); l.castShadow = true; scene.add(l); sceneLights.push(l); });
 
-      const SZ = 40;
+      const SZ = R.sz || 40;
       const floorMat = new THREE.MeshStandardMaterial({ color: R.floor[0], emissive: R.floor[1], roughness: .85, metalness: .15 });
       const floor = new THREE.Mesh(new THREE.PlaneGeometry(SZ, SZ, 32, 32), floorMat);
       floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; roomGeoGroup.add(floor);
@@ -3296,7 +3506,7 @@
       const grid = new THREE.GridHelper(SZ, SZ, R.grid, R.grid);
       grid.position.y = .01; grid.material.opacity = .18; grid.material.transparent = true; roomGeoGroup.add(grid);
 
-      const WALL_H = 14;
+      const WALL_H = R.wallH || 14;
       const wallMat = new THREE.MeshStandardMaterial({ color: R.wall[0], emissive: R.wall[1], roughness: .9 });
       [{ p: [0, WALL_H / 2, -SZ / 2], r: [0, 0, 0] }, { p: [0, WALL_H / 2, SZ / 2], r: [0, Math.PI, 0] }, { p: [-SZ / 2, WALL_H / 2, 0], r: [0, Math.PI / 2, 0] }, { p: [SZ / 2, WALL_H / 2, 0], r: [0, -Math.PI / 2, 0] }].forEach(w => {
         const m = new THREE.Mesh(new THREE.PlaneGeometry(SZ, WALL_H), wallMat.clone()); m.position.set(...w.p); m.rotation.set(...w.r); m.receiveShadow = true; roomGeoGroup.add(m);
@@ -3305,7 +3515,7 @@
 
       const smat = new THREE.MeshStandardMaterial({ color: R.accent, emissive: R.accent, emissiveIntensity: .5, roughness: .3 });
       [[new THREE.BoxGeometry(SZ, .05, .05), [0, 1.85, -SZ / 2 + .04]], [new THREE.BoxGeometry(SZ, .05, .05), [0, 1.85, SZ / 2 - .04]], [new THREE.BoxGeometry(.05, .05, SZ), [-SZ / 2 + .04, 1.85, 0]], [new THREE.BoxGeometry(.05, .05, SZ), [SZ / 2 - .04, 1.85, 0]],
-      [new THREE.BoxGeometry(SZ, .04, .04), [0, 7, -SZ / 2 + .04]], [new THREE.BoxGeometry(SZ, .04, .04), [0, 7, SZ / 2 - .04]], [new THREE.BoxGeometry(.04, .04, SZ), [-SZ / 2 + .04, 7, 0]], [new THREE.BoxGeometry(.04, .04, SZ), [SZ / 2 - .04, 7, 0]]
+      [new THREE.BoxGeometry(SZ, .04, .04), [0, WALL_H * .5, -SZ / 2 + .04]], [new THREE.BoxGeometry(SZ, .04, .04), [0, WALL_H * .5, SZ / 2 - .04]], [new THREE.BoxGeometry(.04, .04, SZ), [-SZ / 2 + .04, WALL_H * .5, 0]], [new THREE.BoxGeometry(.04, .04, SZ), [SZ / 2 - .04, WALL_H * .5, 0]]
       ].forEach(([geo, pos]) => {
         const m = new THREE.Mesh(geo, smat.clone()); m.position.set(...pos); roomGeoGroup.add(m);
       });
@@ -5519,7 +5729,7 @@
         }
         items.push(entry);
       }
-      const json = JSON.stringify({ version: 1, timestamp: Date.now(), items }, null, 2);
+      const json = JSON.stringify({ version: 1, timestamp: Date.now(), items, customRooms: CUSTOM_ROOMS }, null, 2);
       const a = document.createElement('a'); a.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(json);
       a.download = 'save.json'; a.click();
       showToast('Layout exported → save.json');
@@ -5532,6 +5742,15 @@
         const data = JSON.parse(text);
         const items = data.items || data; // support both wrapped and flat arrays
         if (!Array.isArray(items)) throw new Error('Invalid layout file');
+        // Restore any custom mod rooms bundled in this save file
+        if (data.customRooms && typeof data.customRooms === 'object') {
+          for (const [id, def] of Object.entries(data.customRooms)) {
+            CUSTOM_ROOMS[id] = def;
+            ROOMS[id] = buildRoomDefFromMod(def);
+          }
+          await DB.set('custom_rooms', JSON.stringify(CUSTOM_ROOMS));
+          renderModsList();
+        }
         bumpIdCounter(items); // fix: ensure new pins don't reuse IDs already in the imported layout
         // Clear existing pinned
         [...globalPinnedWindows].forEach(pw => closePinnedWindow(pw));
@@ -5571,6 +5790,14 @@
         const data = await res.json();
         const items = data.items || data;
         if (!Array.isArray(items) || !items.length) return false;
+        // Restore custom mod rooms bundled in save.json
+        if (data.customRooms && typeof data.customRooms === 'object') {
+          for (const [id, def] of Object.entries(data.customRooms)) {
+            CUSTOM_ROOMS[id] = def;
+            ROOMS[id] = buildRoomDefFromMod(def);
+          }
+          await DB.set('custom_rooms', JSON.stringify(CUSTOM_ROOMS));
+        }
 
         bumpIdCounter(items); // fix: ensure new pins don't reuse IDs already in save.json
         [...globalPinnedWindows].forEach(pw => closePinnedWindow(pw));
@@ -7291,6 +7518,7 @@
     // INIT
     // ===============================================================
     async function initApp() {
+      await loadPersistentMods(); // restore any custom rooms from IndexedDB before building
       buildRoom('home');
       tryRestoreFolder();
       const loadedFromSaveJson = await loadSaveJsonIfPresent();
