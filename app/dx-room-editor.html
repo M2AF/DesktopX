@@ -47,6 +47,10 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:11px;
   color:var(--gold);padding:6px 16px;border-radius:5px;cursor:pointer;
   font-family:var(--fh);font-size:10px;letter-spacing:.1em;transition:all .15s;white-space:nowrap}
 #expbtn:hover{background:rgba(255,140,0,.3);box-shadow:0 0 14px rgba(255,140,0,.25)}
+#impbtn{background:rgba(0,180,120,.12);border:1px solid rgba(0,200,140,.35);
+  color:#44ffbb;padding:6px 16px;border-radius:5px;cursor:pointer;
+  font-family:var(--fh);font-size:10px;letter-spacing:.1em;transition:all .15s;white-space:nowrap}
+#impbtn:hover{background:rgba(0,200,140,.22);box-shadow:0 0 14px rgba(0,200,140,.2)}
 
 /* ── MAIN ── */
 #main{flex:1;display:flex;overflow:hidden}
@@ -135,6 +139,7 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:11px;
       <button onclick="ap('crimson')">🩸 Crimson</button>
     </div>
   </div>
+  <button id="impbtn" onclick="triggerImport()">⬆ IMPORT .dxroom</button>
   <button id="expbtn" onclick="exportRoom()">⬇ EXPORT .dxroom</button>
 </div>
 
@@ -407,7 +412,91 @@ function exportRoom(){
 }
 
 // ═══════════════════════════════════════════════════
-// THREE.JS PREVIEW
+// IMPORT
+// ═══════════════════════════════════════════════════
+function i2h(n){ return '#'+('000000'+(n>>>0).toString(16)).slice(-6); }
+
+function triggerImport(){
+  const inp=document.createElement('input');
+  inp.type='file'; inp.accept='.dxroom,.json';
+  inp.onchange=e=>{
+    const file=e.target.files[0]; if(!file) return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      try { importRoom(JSON.parse(ev.target.result)); }
+      catch(err){ alert('Could not parse .dxroom file:\n'+err.message); }
+    };
+    reader.readAsText(file);
+  };
+  inp.click();
+}
+
+function importRoom(def){
+  if(!def||typeof def!=='object'){ alert('Invalid .dxroom file.'); return; }
+
+  // ── Name & ID ──────────────────────────────────────
+  $('rn').value=def.name||'My Room';
+  $('ri').value=def.id||'my_room';
+
+  // ── Geometry ───────────────────────────────────────
+  if(def.sz!=null){ $('rsz').value=def.sz; $('sz-v').textContent=def.sz; }
+  if(def.wallH!=null){ $('wh').value=def.wallH; $('wh-v').textContent=def.wallH; }
+
+  // ── Fog ────────────────────────────────────────────
+  const fogHex=i2h(def.fog??0x000510);
+  si('fc',fogHex);
+  const fd=def.fogD??0.008;
+  $('fd').value=fd; $('fd-v').textContent=fd.toFixed(3);
+
+  // ── Sky gradient ───────────────────────────────────
+  if(Array.isArray(def.sky)&&def.sky.length){
+    S.sky=def.sky.map(s=>Array.isArray(s)?{stop:s[0],color:s[1]}:{stop:s.stop,color:s.color});
+  }
+  rSky();
+
+  // ── Stars ──────────────────────────────────────────
+  $('stars').checked=def.stars!==false;
+
+  // ── Ambient light ──────────────────────────────────
+  if(Array.isArray(def.ambient)&&def.ambient.length>=2){
+    si('ac',i2h(def.ambient[0]));
+    $('ai').value=def.ambient[1]; $('ai-v').textContent=def.ambient[1].toFixed(2);
+  }
+
+  // ── Point lights  {c:int, i, p:[x,y,z]} ───────────
+  if(Array.isArray(def.lights)){
+    S.lights=def.lights.map(l=>({color:i2h(l.c),i:l.i,x:l.p[0],y:l.p[1],z:l.p[2]}));
+  }
+  rLights();
+
+  // ── Materials ──────────────────────────────────────
+  [['f1',def.floor?.[0]],['f2',def.floor?.[1]],
+   ['w1',def.wall?.[0]], ['w2',def.wall?.[1]],
+   ['gc',def.grid],      ['xc',def.accent]
+  ].forEach(([id,val])=>{ if(val!=null) si(id,i2h(val)); });
+
+  // ── Icon wall ──────────────────────────────────────
+  if(def.iconWall) $('iw').value=def.iconWall;
+
+  // ── Icons  (parallel arrays in export) ────────────
+  if(Array.isArray(def.icons)){
+    S.icons=def.icons.map((name,i)=>({name,type:def.iconTypes?.[i]||'default'}));
+  }
+  rIcons();
+
+  // ── Portals  {pos:[x,y,z], rot, target, label} ────
+  if(Array.isArray(def.portals)){
+    S.portals=def.portals.map(p=>({
+      label:p.label||'',target:p.target||'',
+      x:p.pos?.[0]??0,y:p.pos?.[1]??0,z:p.pos?.[2]??-18,rot:p.rot??0
+    }));
+  }
+  rPortals();
+
+  rb();
+}
+
+
 // ═══════════════════════════════════════════════════
 const canvas=$('c');
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true});

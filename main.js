@@ -173,6 +173,36 @@ function createWindow() {
   });
 
   mainWindow.on('closed', () => { mainWindow = null; });
+
+  // ── Room Editor window ────────────────────────────────────────────────────
+  // window.open('dx-room-editor.html') is intercepted here so it opens as a
+  // proper BrowserWindow with the preload and proxy port — not silently denied.
+  mainWindow.webContents.setWindowOpenHandler(({ url: openUrl }) => {
+    if (openUrl.includes('dx-room-editor.html')) {
+      const editorWin = new BrowserWindow({
+        width: 1400, height: 900,
+        minWidth: 900, minHeight: 600,
+        frame: true,
+        icon: path.join(APP_ROOT, 'favicon.ico'),
+        title: 'DX Room Editor',
+        webPreferences: {
+          preload:          path.join(__dirname, 'preload.js'),
+          contextIsolation: true,
+          nodeIntegration:  false,
+        },
+      });
+      editorWin.loadFile(path.join(APP_ROOT, 'dx-room-editor.html'));
+      editorWin.webContents.on('did-finish-load', () => {
+        editorWin.webContents.executeJavaScript(
+          `window.ELECTRON_PROXY_PORT = ${PROXY_PORT}; window.ELECTRON_MODE = true;`
+        );
+      });
+      return { action: 'deny' }; // we created it manually above
+    }
+    // Any other window.open calls (external URLs) → default browser
+    shell.openExternal(openUrl).catch(() => {});
+    return { action: 'deny' };
+  });
 }
 
 // ── System tray ──────────────────────────────────────────────────────────────
