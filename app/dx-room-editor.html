@@ -150,6 +150,7 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:11px;
       <div class="tab" data-t="lights" onclick="st('lights')">LIGHTS</div>
       <div class="tab" data-t="mats" onclick="st('mats')">MATS</div>
       <div class="tab" data-t="icons" onclick="st('icons')">ICONS</div>
+      <div class="tab" data-t="shapes" onclick="st('shapes')">SHAPES</div>
       <div class="tab" data-t="portals" onclick="st('portals')">PORTALS</div>
     </div>
     <div id="panels">
@@ -227,6 +228,25 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:11px;
         </p>
         <div id="pl"></div>
         <button class="abtn" onclick="addPortal()">+ Add Portal</button>
+      </div>
+
+      <div class="panel" id="p-shapes">
+        <div class="sec">ADD SHAPE</div>
+        <div style="position:relative;width:100%;margin-bottom:12px">
+          <button id="shape-add-btn" onclick="showShapeMenu()" style="width:100%;background:rgba(255,130,0,.15);border:1px dashed rgba(255,130,0,.35);color:var(--tx);padding:7px;border-radius:4px;cursor:pointer;font-size:10px;font-family:var(--fm)">➕ Add Shape ▾</button>
+          <div id="shape-menu" style="display:none;position:absolute;top:100%;left:0;right:0;background:rgba(14,7,0,.98);border:1px solid var(--bhi);border-radius:4px;margin-top:4px;z-index:100">
+            <button onclick="createShape('cube')" style="width:100%;text-align:left;padding:8px 12px;border:none;background:none;border-bottom:1px solid rgba(255,130,0,.1);color:var(--tx);cursor:pointer;font-family:var(--fm);font-size:10px">◻️ Cube</button>
+            <button onclick="createShape('sphere')" style="width:100%;text-align:left;padding:8px 12px;border:none;background:none;border-bottom:1px solid rgba(255,130,0,.1);color:var(--tx);cursor:pointer;font-family:var(--fm);font-size:10px">🔮 Sphere</button>
+            <button onclick="createShape('cylinder')" style="width:100%;text-align:left;padding:8px 12px;border:none;background:none;border-bottom:1px solid rgba(255,130,0,.1);color:var(--tx);cursor:pointer;font-family:var(--fm);font-size:10px">⚙️ Cylinder</button>
+            <button onclick="createShape('torus')" style="width:100%;text-align:left;padding:8px 12px;border:none;background:none;border-bottom:1px solid rgba(255,130,0,.1);color:var(--tx);cursor:pointer;font-family:var(--fm);font-size:10px">⭕ Torus</button>
+            <button onclick="createShape('plane')" style="width:100%;text-align:left;padding:8px 12px;border:none;background:none;color:var(--tx);cursor:pointer;font-family:var(--fm);font-size:10px">◼️ Plane</button>
+          </div>
+        </div>
+        <div class="sec">ADD OBJECT</div>
+        <button onclick="createDeskObject('dj_desk')" style="width:100%;margin-bottom:6px;background:rgba(0,180,120,.12);border:1px solid rgba(0,200,140,.3);color:#44ffbb;padding:6px;border-radius:4px;cursor:pointer;font-size:10px;font-family:var(--fm)">🎛️ DJ Desk</button>
+        <button onclick="createDeskObject('movie_screen')" style="width:100%;background:rgba(0,180,120,.12);border:1px solid rgba(0,200,140,.3);color:#44ffbb;padding:6px;border-radius:4px;cursor:pointer;font-size:10px;font-family:var(--fm)">🎬 Movie Screen</button>
+        <div id="shapes-list" style="margin-top:12px"></div>
+        <div id="transform-controls" style="display:none;margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,130,0,.12)"></div>
       </div>
 
     </div>
@@ -404,7 +424,10 @@ function exportRoom(){
     portals:S.portals.map(p=>({pos:[p.x,p.y,p.z],rot:p.rot,target:p.target,label:p.label})),
     icons:S.icons.map(i=>i.name),
     iconTypes:S.icons.map(i=>i.type),
-    iconWall:v('iw')
+    iconWall:v('iw'),
+    shapes:S.shapes.map(s=>({id:s.id,type:s.type,color:s.color,roughness:s.roughness,metalness:s.metalness,emissiveColor:s.emissiveColor,emissiveIntensity:s.emissiveIntensity,x:s.x,y:s.y,z:s.z,rx:s.rx,ry:s.ry,rz:s.rz,sx:s.sx,sy:s.sy,sz:s.sz,group:s.group})),
+    groups:S.groups.map(g=>({id:g.id,label:g.label,shapeIds:g.shapeIds,x:g.x,y:g.y,z:g.z,rx:g.rx,ry:g.ry,rz:g.rz,visible:g.visible})),
+    deskObjects:S.deskObjects.map(o=>({id:o.id,type:o.type,x:o.x,y:o.y,z:o.z,rx:o.rx,ry:o.ry,rz:o.rz,sx:o.sx,sy:o.sy,sz:o.sz,visible:o.visible}))
   };
   const a=document.createElement('a');
   a.href='data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(def,null,2));
@@ -493,11 +516,34 @@ function importRoom(def){
   }
   rPortals();
 
+  // ── Shapes ──────────────────────────────────────────
+  if(Array.isArray(def.shapes)){
+    S.shapes=def.shapes.map(s=>({id:s.id,type:s.type,color:s.color,roughness:s.roughness,metalness:s.metalness,emissiveColor:s.emissiveColor,emissiveIntensity:s.emissiveIntensity,x:s.x,y:s.y,z:s.z,rx:s.rx,ry:s.ry,rz:s.rz,sx:s.sx,sy:s.sy,sz:s.sz,group:s.group}));
+  }
+
+  // ── Groups ──────────────────────────────────────────
+  if(Array.isArray(def.groups)){
+    S.groups=def.groups.map(g=>({id:g.id,label:g.label,shapeIds:g.shapeIds,x:g.x,y:g.y,z:g.z,rx:g.rx,ry:g.ry,rz:g.rz,visible:g.visible}));
+  }
+
+  // ── Desk Objects (DJ Desk, Movie Screen) ───────────
+  if(Array.isArray(def.deskObjects)){
+    S.deskObjects=def.deskObjects.map(o=>({id:o.id,type:o.type,x:o.x,y:o.y,z:o.z,rx:o.rx,ry:o.ry,rz:o.rz,sx:o.sx,sy:o.sy,sz:o.sz,visible:o.visible}));
+  }
+
+  renderShapeCards();
   rb();
 }
 
 
 // ═══════════════════════════════════════════════════
+// Initialize shapes, groups, desk objects
+if(!S.shapes)S.shapes=[];
+if(!S.groups)S.groups=[];
+if(!S.deskObjects)S.deskObjects=[];
+S.selectedObject=null;
+S.selectedType=null;
+
 const canvas=$('c');
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
 renderer.shadowMap.enabled=true;
@@ -506,6 +552,13 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
 const scene=new THREE.Scene();
 const camera=new THREE.PerspectiveCamera(65,1,.1,200);
 let pvL=[],pvO=[];
+let selectionHelper=null;
+let raycaster=new THREE.Raycaster();
+let mouse=new THREE.Vector2();
+let mouseDown=false;
+let dragOffset=new THREE.Vector3();
+let dragPlane=new THREE.Plane(new THREE.Vector3(0,0,1),0);
+let dragPoint=new THREE.Vector3();
 
 function clrScene(){
   pvL.forEach(l=>scene.remove(l)); pvL=[];
@@ -522,6 +575,145 @@ function makeSkyTex(){
 }
 
 const IC={folder:0x3388ff,audio:0x00cc88,photo:0xff8844,video:0xaa44ff,text:0x88aacc,exe:0xff4488,steam:0x66aaff,settings:0x888888,chainlens:0xffcc44,default:0x4466aa};
+
+// ═══════════════════════════════════════════════════
+// SHAPES MANAGEMENT FUNCTIONS
+// ═══════════════════════════════════════════════════
+
+function showShapeMenu(){$('shape-menu').style.display=$('shape-menu').style.display==='none'?'block':'none'}
+
+function createShape(type){
+  const id=`shape_${String(S.shapes.length+1).padStart(3,'0')}`;
+  S.shapes.push({id,type,color:'#ff8800',roughness:0.5,metalness:0,emissiveColor:'#000000',emissiveIntensity:0,x:0,y:1,z:0,rx:0,ry:0,rz:0,sx:1,sy:1,sz:1,group:null});
+  selectShape(id);
+  $('shape-menu').style.display='none';
+  rb();
+}
+
+function selectShape(shapeId){
+  S.selectedObject=S.shapes.find(s=>s.id===shapeId);
+  S.selectedType='shape';
+  renderShapeCards();
+  renderTransformControls();
+  rb();
+}
+
+function selectGroup(groupId){
+  S.selectedObject=S.groups.find(g=>g.id===groupId);
+  S.selectedType='group';
+  renderShapeCards();
+  renderTransformControls();
+  rb();
+}
+
+function deleteShape(shapeId){
+  S.shapes=S.shapes.filter(s=>s.id!==shapeId);
+  S.groups.forEach(g=>{g.shapeIds=g.shapeIds.filter(id=>id!==shapeId)});
+  S.groups=S.groups.filter(g=>g.shapeIds.length>0);
+  S.selectedObject=null;
+  renderShapeCards();
+  rb();
+}
+
+function deleteGroup(groupId){
+  const group=S.groups.find(g=>g.id===groupId);
+  if(group){group.shapeIds.forEach(id=>{const s=S.shapes.find(sh=>sh.id===id);if(s)s.group=null})}
+  S.groups=S.groups.filter(g=>g.id!==groupId);
+  S.selectedObject=null;
+  renderShapeCards();
+  rb();
+}
+
+function createDeskObject(type){
+  const id=`${type}_${String(S.deskObjects.length+1).padStart(3,'0')}`;
+  S.deskObjects.push({id,type,x:0,y:2,z:0,rx:0,ry:0,rz:0,sx:1,sy:1,sz:1,visible:true});
+  selectDeskObject(id);
+  rb();
+}
+
+function selectDeskObject(objId){
+  S.selectedObject=S.deskObjects.find(o=>o.id===objId);
+  S.selectedType='deskObject';
+  renderShapeCards();
+  renderTransformControls();
+  rb();
+}
+
+function deleteDeskObject(objId){
+  S.deskObjects=S.deskObjects.filter(o=>o.id!==objId);
+  S.selectedObject=null;
+  renderShapeCards();
+  rb();
+}
+
+function createShapeMesh(shape){
+  let geometry;
+  switch(shape.type.toLowerCase()){
+    case'cube':geometry=new THREE.BoxGeometry(1,1,1);break;
+    case'sphere':geometry=new THREE.SphereGeometry(0.5,32,32);break;
+    case'cylinder':geometry=new THREE.CylinderGeometry(0.5,0.5,1,32);break;
+    case'torus':geometry=new THREE.TorusGeometry(0.5,0.2,16,100);break;
+    case'plane':geometry=new THREE.PlaneGeometry(1,1);break;
+    default:geometry=new THREE.BoxGeometry(1,1,1);
+  }
+  const material=new THREE.MeshStandardMaterial({color:h2i(shape.color),roughness:shape.roughness,metalness:shape.metalness,emissive:h2i(shape.emissiveColor),emissiveIntensity:shape.emissiveIntensity,side:THREE.DoubleSide});
+  const mesh=new THREE.Mesh(geometry,material);
+  mesh.position.set(shape.x,shape.y,shape.z);
+  mesh.rotation.set(shape.rx,shape.ry,shape.rz);
+  mesh.scale.set(shape.sx,shape.sy,shape.sz);
+  mesh.castShadow=true;
+  mesh.receiveShadow=true;
+  mesh.userData.shapeId=shape.id;
+  return mesh;
+}
+
+function renderShapeCards(){
+  const container=$('shapes-list');
+  container.innerHTML='';
+  S.shapes.forEach(shape=>{
+    const card=document.createElement('div');
+    card.className='card';
+    if(S.selectedObject?.id===shape.id)card.style.background='rgba(255,130,0,.25)';
+    card.innerHTML=`<div class="ch"><span>${shape.type.charAt(0).toUpperCase()+shape.type.slice(1)} #${shape.id.split('_')[1]}</span><button class="del" onclick="deleteShape('${shape.id}')">✕</button></div><div class="cr"><input type="color" value="${shape.color}" onchange="updateShapeProperty('${shape.id}','color',this.value)"><span class="cv">${shape.color}</span></div><div class="f"><label>Roughness</label><input type="range" min="0" max="1" step="0.01" value="${shape.roughness}" oninput="updateShapeProperty('${shape.id}','roughness',parseFloat(this.value))"><span class="val">${parseFloat(shape.roughness).toFixed(2)}</span></div><div class="f"><label>Metalness</label><input type="range" min="0" max="1" step="0.01" value="${shape.metalness}" oninput="updateShapeProperty('${shape.id}','metalness',parseFloat(this.value))"><span class="val">${parseFloat(shape.metalness).toFixed(2)}</span></div><div class="cr"><input type="color" value="${shape.emissiveColor}" onchange="updateShapeProperty('${shape.id}','emissiveColor',this.value)"><span class="cv">${shape.emissiveColor}</span></div><div class="f"><label>Emissive Int</label><input type="range" min="0" max="2" step="0.01" value="${shape.emissiveIntensity}" oninput="updateShapeProperty('${shape.id}','emissiveIntensity',parseFloat(this.value))"><span class="val">${parseFloat(shape.emissiveIntensity).toFixed(2)}</span></div>`;
+    card.onclick=()=>selectShape(shape.id);
+    container.appendChild(card);
+  });
+  S.deskObjects.forEach(obj=>{
+    const card=document.createElement('div');
+    card.className='card';
+    if(S.selectedObject?.id===obj.id)card.style.background='rgba(255,130,0,.25)';
+    const label=obj.type==='dj_desk'?'🎛️ DJ Desk':'🎬 Movie Screen';
+    card.innerHTML=`<div class="ch"><span>${label} #${obj.id.split('_')[1]}</span><button class="del" onclick="deleteDeskObject('${obj.id}')">✕</button></div>`;
+    card.onclick=()=>selectDeskObject(obj.id);
+    container.appendChild(card);
+  });
+}
+
+function renderTransformControls(){
+  if(!S.selectedObject){$('transform-controls').style.display='none';return}
+  const obj=S.selectedObject;
+  const ctrl=$('transform-controls');
+  ctrl.style.display='block';
+  ctrl.innerHTML=`<div class="sec">POSITION</div><div class="r3"><div><label>X</label><input type="number" step="0.1" value="${obj.x.toFixed(2)}" oninput="updateObjectProperty('${obj.id}','x',parseFloat(this.value))"></div><div><label>Y</label><input type="number" step="0.1" value="${obj.y.toFixed(2)}" oninput="updateObjectProperty('${obj.id}','y',parseFloat(this.value))"></div><div><label>Z</label><input type="number" step="0.1" value="${obj.z.toFixed(2)}" oninput="updateObjectProperty('${obj.id}','z',parseFloat(this.value))"></div></div><div class="sec">ROTATION (°)</div><div class="r3"><div><label>X</label><input type="range" min="0" max="360" step="1" value="${(obj.rx*180/Math.PI).toFixed(0)}" oninput="updateObjectProperty('${obj.id}','rx',parseFloat(this.value)*Math.PI/180)"><span class="val">${(obj.rx*180/Math.PI).toFixed(0)}°</span></div><div><label>Y</label><input type="range" min="0" max="360" step="1" value="${(obj.ry*180/Math.PI).toFixed(0)}" oninput="updateObjectProperty('${obj.id}','ry',parseFloat(this.value)*Math.PI/180)"><span class="val">${(obj.ry*180/Math.PI).toFixed(0)}°</span></div><div><label>Z</label><input type="range" min="0" max="360" step="1" value="${(obj.rz*180/Math.PI).toFixed(0)}" oninput="updateObjectProperty('${obj.id}','rz',parseFloat(this.value)*Math.PI/180)"><span class="val">${(obj.rz*180/Math.PI).toFixed(0)}°</span></div></div><div class="sec">SCALE</div><div class="r3"><div><label>X</label><input type="range" min="0.1" max="5" step="0.1" value="${obj.sx.toFixed(1)}" oninput="updateObjectProperty('${obj.id}','sx',parseFloat(this.value))"><span class="val">${obj.sx.toFixed(1)}</span></div><div><label>Y</label><input type="range" min="0.1" max="5" step="0.1" value="${obj.sy.toFixed(1)}" oninput="updateObjectProperty('${obj.id}','sy',parseFloat(this.value))"><span class="val">${obj.sy.toFixed(1)}</span></div><div><label>Z</label><input type="range" min="0.1" max="5" step="0.1" value="${obj.sz.toFixed(1)}" oninput="updateObjectProperty('${obj.id}','sz',parseFloat(this.value))"><span class="val">${obj.sz.toFixed(1)}</span></div></div>`;
+}
+
+function updateShapeProperty(shapeId,prop,value){
+  const shape=S.shapes.find(s=>s.id===shapeId);
+  if(shape){shape[prop]=value;rb();renderShapeCards()}
+}
+
+function updateObjectProperty(objId,prop,value){
+  let obj=S.shapes.find(s=>s.id===objId)||S.groups.find(g=>g.id===objId)||S.deskObjects.find(o=>o.id===objId);
+  if(obj){obj[prop]=value;renderTransformControls();rb()}
+}
+
+function showSelectionIndicator(shape){
+  if(selectionHelper){scene.remove(selectionHelper);selectionHelper=null}
+  if(!shape)return;
+  let targetMesh=null;
+  scene.traverse(obj=>{if(obj.userData.shapeId===shape.id||obj.userData.deskObjId===shape.id)targetMesh=obj});
+  if(targetMesh){selectionHelper=new THREE.BoxHelper(targetMesh,0xffff00);scene.add(selectionHelper)}
+}
 
 function rb(){
   clrScene();
@@ -597,8 +789,39 @@ function rb(){
     scene.add(g); pvO.push(g);
   });
 
+  // Render shapes
+  S.shapes.forEach(shape=>{
+    const mesh=createShapeMesh(shape);
+    add(mesh);
+  });
+
+  // Render desk objects (simplified geometry, no interaction)
+  S.deskObjects.forEach(obj=>{
+    let geom;
+    if(obj.type==='dj_desk'){
+      geom=createDJDeskGeometry();
+    }else if(obj.type==='movie_screen'){
+      geom=createMovieScreenGeometry();
+    }
+    if(geom){
+      geom.position.set(obj.x,obj.y,obj.z);
+      geom.rotation.set(obj.rx,obj.ry,obj.rz);
+      geom.scale.set(obj.sx,obj.sy,obj.sz);
+      geom.userData.deskObjId=obj.id;
+      geom.castShadow=true;
+      add(geom);
+    }
+  });
+
+  // Add axis helper
+  const axisHelper=new THREE.AxesHelper(2);
+  add(axisHelper);
+
+  // Show selection indicator if something is selected
+  if(S.selectedObject)showSelectionIndicator(S.selectedObject);
+
   // Update info overlay
-  $('pvinfo').innerHTML=`<div>${v('rn')||'Unnamed'}</div><div style="opacity:.4;font-size:7.5px">${v('ri')||'no-id'}</div><div style="opacity:.28;font-size:7.5px;margin-top:3px">${S.lights.length} lights · ${S.icons.length} icons · ${S.portals.length} portals</div>`;
+  $('pvinfo').innerHTML=`<div>${v('rn')||'Unnamed'}</div><div style="opacity:.4;font-size:7.5px">${v('ri')||'no-id'}</div><div style="opacity:.28;font-size:7.5px;margin-top:3px">${S.lights.length} lights · ${S.icons.length} icons · ${S.portals.length} portals · ${S.shapes.length} shapes · ${S.deskObjects.length} objects</div>`;
 }
 
 // ═══════════════════════════════════════════════════
@@ -619,6 +842,139 @@ function updCam(){
   camera.position.y=radius*Math.sin(phi)+2;
   camera.position.z=radius*Math.cos(theta)*Math.cos(phi);
   camera.lookAt(0,2.5,0);
+}
+
+// ═══════════════════════════════════════════════════
+// DRAG AND DROP WITH RAYCASTING
+// ═══════════════════════════════════════════════════
+canvas.addEventListener('mousedown',e=>{
+  if(e.button!==0)return;
+  mouse.x=(e.clientX/canvas.clientWidth)*2-1;
+  mouse.y=-(e.clientY/canvas.clientHeight)*2+1;
+  raycaster.setFromCamera(mouse,camera);
+  const intersects=raycaster.intersectObjects(scene.children,true);
+  for(let int of intersects){
+    let obj=int.object;
+    while(obj&&!obj.userData.shapeId&&!obj.userData.deskObjId){obj=obj.parent}
+    if(obj&&obj.userData.shapeId){selectShape(obj.userData.shapeId);mouseDown=true;dragOffset=int.point.clone().sub(obj.position);dragPlane.setFromNormalAndCoplanarPoint(camera.getWorldDirection(new THREE.Vector3()),obj.position);break}
+    if(obj&&obj.userData.deskObjId){selectDeskObject(obj.userData.deskObjId);mouseDown=true;dragOffset=int.point.clone().sub(obj.position);dragPlane.setFromNormalAndCoplanarPoint(camera.getWorldDirection(new THREE.Vector3()),obj.position);break}
+  }
+});
+window.addEventListener('mousemove',e=>{
+  if(!mouseDown||!S.selectedObject)return;
+  mouse.x=(e.clientX/canvas.clientWidth)*2-1;
+  mouse.y=-(e.clientY/canvas.clientHeight)*2+1;
+  raycaster.setFromCamera(mouse,camera);
+  raycaster.ray.intersectPlane(dragPlane,dragPoint);
+  const newPos=dragPoint.clone().sub(dragOffset);
+  S.selectedObject.x=parseFloat(newPos.x.toFixed(2));
+  S.selectedObject.y=parseFloat(newPos.y.toFixed(2));
+  S.selectedObject.z=parseFloat(newPos.z.toFixed(2));
+  renderTransformControls();
+  rb();
+});
+window.addEventListener('mouseup',()=>{mouseDown=false});
+canvas.style.cursor='auto';
+window.addEventListener('mousemove',e=>{
+  if(mouseDown){canvas.style.cursor='grabbing';return}
+  mouse.x=(e.clientX/canvas.clientWidth)*2-1;
+  mouse.y=-(e.clientY/canvas.clientHeight)*2+1;
+  raycaster.setFromCamera(mouse,camera);
+  const intersects=raycaster.intersectObjects(scene.children,true);
+  let hover=false;
+  for(let int of intersects){let obj=int.object;while(obj&&!obj.userData.shapeId&&!obj.userData.deskObjId){obj=obj.parent}if(obj&&(obj.userData.shapeId||obj.userData.deskObjId)){hover=true;break}}
+  canvas.style.cursor=hover?'grab':'auto';
+});
+
+// ═══════════════════════════════════════════════════
+// DJ DESK GEOMETRY (SIMPLIFIED, NO AUDIO)
+// ═══════════════════════════════════════════════════
+function createDJDeskGeometry(){
+  const group=new THREE.Group();
+  const C={body:0x0a1428,deck:0x111c30,screen:0x000c1c,trim:0x00a0ff,btn:0x003060,knob:0x002244};
+  
+  // Table body
+  const body=new THREE.Mesh(new THREE.BoxGeometry(6,0.18,3.2),new THREE.MeshStandardMaterial({color:C.body,roughness:.6,metalness:.4}));
+  body.position.set(0,1.05,0);group.add(body);
+  
+  // Legs
+  [[2.6,0,1.3],[2.6,0,-1.3],[-2.6,0,1.3],[-2.6,0,-1.3]].forEach(([x,y,z])=>{
+    const leg=new THREE.Mesh(new THREE.BoxGeometry(.1,1.1,.1),new THREE.MeshStandardMaterial({color:0x001830,metalness:.7,roughness:.3}));
+    leg.position.set(x,.55,z);group.add(leg);
+  });
+  
+  // Vinyl platters
+  const platter=new THREE.Mesh(new THREE.CylinderGeometry(.85,.88,.05,36),new THREE.MeshStandardMaterial({color:C.deck,roughness:.3,metalness:.6}));
+  platter.position.set(-1.5,1.16,0);group.add(platter);
+  for(let r=.2;r<.8;r+=.12){
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(r,.008,8,36),new THREE.MeshStandardMaterial({color:0x001a30,roughness:.9}));
+    ring.rotation.x=Math.PI/2;ring.position.set(-1.5,1.195,0);group.add(ring);
+  }
+  const label=new THREE.Mesh(new THREE.CylinderGeometry(.22,.22,.06,24),new THREE.MeshStandardMaterial({color:0xff3333,roughness:.5}));
+  label.position.set(-1.5,1.19,0);group.add(label);
+  const platterR=platter.clone();platterR.position.set(1.5,1.16,0);group.add(platterR);
+  const labelR=label.clone();labelR.material=label.material.clone();labelR.material.color.set(0x3366ff);labelR.position.set(1.5,1.19,0);group.add(labelR);
+  
+  // Screen (simple black plane)
+  const screen=new THREE.Mesh(new THREE.PlaneGeometry(3.2,2.0),new THREE.MeshStandardMaterial({color:0x000000,emissive:0x001a38,emissiveIntensity:.5,roughness:.15}));
+  screen.position.set(0,2.4,-.91);group.add(screen);
+  
+  // Buttons
+  [[-2.0,'⏮'],[- 1.0,'▶'],[0.0,'⏹'],[1.0,'⏭'],[2.0,'📁']].forEach(([x,icon])=>{
+    const bm=new THREE.Mesh(new THREE.BoxGeometry(.8,.44,.08),new THREE.MeshStandardMaterial({color:C.btn,emissive:C.btn,emissiveIntensity:.35,roughness:.3,metalness:.5}));
+    bm.position.set(x,1.27,-.92);group.add(bm);
+  });
+  
+  // Crossfader
+  const cfTrack=new THREE.Mesh(new THREE.BoxGeometry(3,.04,.12),new THREE.MeshStandardMaterial({color:0x001428,metalness:.6}));
+  cfTrack.position.set(0,1.16,.4);group.add(cfTrack);
+  const cfKnob=new THREE.Mesh(new THREE.BoxGeometry(.28,.14,.22),new THREE.MeshStandardMaterial({color:0x003366,emissive:0x003366,emissiveIntensity:.3,metalness:.7}));
+  cfKnob.position.set(0,1.22,.4);group.add(cfKnob);
+  
+  // EQ knobs
+  const knobGeo=new THREE.CylinderGeometry(.1,.1,.08,16);
+  for(let i=0;i<3;i++){[-1.6+i*.45,0.6+i*.45].forEach(kx=>{const k=new THREE.Mesh(knobGeo,new THREE.MeshStandardMaterial({color:C.knob,metalness:.8,roughness:.2}));k.position.set(kx,1.22,.8);group.add(k)})}
+  
+  // Glow lights
+  const glow=new THREE.PointLight(0x0088ff,2.5,6);glow.position.set(0,.8,0);group.add(glow);
+  const screenGlow=new THREE.PointLight(0x0044ff,1.2,4);screenGlow.position.set(0,2.2,0);group.add(screenGlow);
+  
+  return group;
+}
+
+// ═══════════════════════════════════════════════════
+// MOVIE SCREEN GEOMETRY (SIMPLIFIED, NO VIDEO)
+// ═══════════════════════════════════════════════════
+function createMovieScreenGeometry(){
+  const group=new THREE.Group();
+  const W=10,H=5.8;
+  
+  // Frame
+  const frameMat=new THREE.MeshStandardMaterial({color:0x0a1020,emissive:0x001030,emissiveIntensity:.3,roughness:.5,metalness:.7});
+  const frame=new THREE.Mesh(new THREE.BoxGeometry(W+.3,H+.3,.12),frameMat);
+  frame.position.set(0,H/2+1.1,0);group.add(frame);
+  
+  // Neon border
+  const neonMat=new THREE.MeshStandardMaterial({color:0x0066ff,emissive:0x0066ff,emissiveIntensity:1.2,roughness:.1});
+  [[W+.3,.06,.06,[0,H+1.1+H*.5+.15,0]],[W+.3,.06,.06,[0,1.1-.15,0]],[.06,H+.3,.06,[-(W+.3)/2,H/2+1.1,0]],[.06,H+.3,.06,[(W+.3)/2,H/2+1.1,0]]].forEach(([gW,gH,gD,pos])=>{
+    const m=new THREE.Mesh(new THREE.BoxGeometry(gW,gH,gD),neonMat.clone());m.position.set(...pos);group.add(m);
+  });
+  
+  // Screen (simple black plane)
+  const screenMat=new THREE.MeshBasicMaterial({color:0x000510});
+  const screenMesh=new THREE.Mesh(new THREE.PlaneGeometry(W,H),screenMat);
+  screenMesh.position.set(0,H/2+1.1,.08);group.add(screenMesh);
+  
+  // Control buttons
+  [[-3.25,'📁'],[-1.95,'▶'],[-0.65,'⏸'],[0.65,'⏹'],[1.95,'🔇'],[3.25,'⛶']].forEach(([x,icon])=>{
+    const bm=new THREE.Mesh(new THREE.BoxGeometry(1.0,.56,.06),new THREE.MeshStandardMaterial({color:0x001840,emissive:0x001840,emissiveIntensity:.4,roughness:.3,metalness:.5}));
+    bm.position.set(x,0.52,.08);group.add(bm);
+  });
+  
+  // Glow light
+  const glow2=new THREE.PointLight(0x003388,3.5,12);glow2.position.set(0,H/2+1.1,1);group.add(glow2);
+  
+  return group;
 }
 
 // ═══════════════════════════════════════════════════
