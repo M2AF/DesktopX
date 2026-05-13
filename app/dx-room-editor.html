@@ -5,6 +5,7 @@
 <title>DesktopX · Room Editor</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@r128/examples/js/controls/TransformControls.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
@@ -80,6 +81,27 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:11px;
 .f input:focus,.f select:focus{outline:none;border-color:rgba(255,140,0,.5)}
 .f select option{background:#120900}
 .f input[type=range]{width:100%;accent-color:var(--acc);cursor:pointer}
+
+/* ── SCRUBBERS (Hybrid: Drag + Manual Input) ── */
+.scrub{display:flex;align-items:center;background:linear-gradient(135deg,rgba(255,130,0,.06),rgba(255,100,0,.03));
+  border:1px solid rgba(255,130,0,.18);border-radius:5px;height:28px;cursor:ew-resize;user-select:none;
+  position:relative;overflow:hidden;margin-bottom:9px;transition:all .12s ease;box-shadow:inset 0 1px 2px rgba(0,0,0,.2)}
+.scrub:hover{border-color:rgba(255,130,0,.32);background:linear-gradient(135deg,rgba(255,130,0,.09),rgba(255,100,0,.05))}
+.scrub.dragging{border-color:var(--acc);background:linear-gradient(135deg,rgba(255,130,0,.15),rgba(255,100,0,.08));
+  box-shadow:inset 0 0 8px rgba(255,130,0,.15),0 0 12px rgba(255,130,0,.12)}
+.scrub.focus-mode{border-color:rgba(255,200,0,.35);cursor:text}
+.scrub-fill{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,rgba(255,130,0,.12),rgba(255,130,0,.04));
+  pointer-events:none;transition:width .05s ease;box-shadow:inset -1px 0 3px rgba(0,0,0,.1)}
+.scrub-lbl{padding:0 8px 0 9px;font-size:9px;letter-spacing:.06em;color:var(--dim);
+  white-space:nowrap;flex-shrink:0;border-right:1px solid rgba(255,130,0,.12);line-height:28px;font-weight:400;
+  transition:color .12s ease;text-transform:uppercase}
+.scrub.dragging .scrub-lbl{color:var(--gold)}
+.scrub-inp{flex:1;background:transparent;border:none;color:var(--acc);font-family:var(--fm);
+  font-size:11px;padding:0 8px;text-align:right;outline:none;cursor:ew-resize;min-width:0;
+  transition:color .12s ease;font-weight:400}
+.scrub-inp:focus{cursor:text;color:var(--gold);outline:none}
+.scrub-inp:disabled{opacity:.5;cursor:not-allowed}
+.scrub-inp::-webkit-inner-spin-button,.scrub-inp::-webkit-outer-spin-button{display:none}
 .r2{display:grid;grid-template-columns:1fr 1fr;gap:7px}
 .r3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px}
 .r3>div>label{font-size:8.5px;display:block;color:var(--dim);margin-bottom:3px}
@@ -118,6 +140,8 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:11px;
   color:rgba(255,140,0,.22);font-size:9px;letter-spacing:.07em;pointer-events:none;white-space:nowrap}
 #pvinfo{position:absolute;top:10px;right:12px;font-family:var(--fh);font-size:8px;
   letter-spacing:.1em;color:rgba(255,140,0,.32);pointer-events:none;text-align:right;line-height:1.9}
+#gizmo-mode{position:absolute;bottom:10px;right:12px;font-family:var(--fm);font-size:9px;
+  color:rgba(0,200,140,.6);pointer-events:none}
 </style>
 </head>
 <body>
@@ -159,8 +183,8 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:11px;
         <div class="sec">FOG</div>
         <div class="f"><label>Color</label>
           <div class="cr"><input type="color" id="fc" value="#000510" oninput="cs(this);rb()"><span class="cv" id="fc-v">#000510</span></div></div>
-        <div class="f"><label>Density <span class="val" id="fd-v">0.008</span></label>
-          <input type="range" id="fd" min="0" max="0.05" step="0.001" value="0.008" oninput="sv('fd','fd-v',3);rb()"></div>
+        <div class="f"><label>Density</label>
+          <div class="scrub" id="fd-s"><div class="scrub-fill"></div><span class="scrub-lbl">Density</span><input type="number" class="scrub-inp" id="fd" value="0.008" step="0.001"></div></div>
         <div class="div"></div>
         <div class="sec">SKY GRADIENT</div>
         <div id="sky-list"></div>
@@ -172,8 +196,8 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:11px;
         <div class="sec">AMBIENT LIGHT</div>
         <div class="f"><label>Color</label>
           <div class="cr"><input type="color" id="ac" value="#001028" oninput="cs(this);rb()"><span class="cv" id="ac-v">#001028</span></div></div>
-        <div class="f"><label>Intensity <span class="val" id="ai-v">0.60</span></label>
-          <input type="range" id="ai" min="0" max="3" step="0.05" value="0.6" oninput="sv('ai','ai-v',2);rb()"></div>
+        <div class="f"><label>Intensity</label>
+          <div class="scrub" id="ai-s"><div class="scrub-fill"></div><span class="scrub-lbl">Intensity</span><input type="number" class="scrub-inp" id="ai" value="0.6" step="0.05"></div></div>
       </div>
 
       <div class="panel" id="p-lights">
@@ -202,10 +226,8 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:11px;
           <div class="cr"><input type="color" id="xc" value="#0066ff" oninput="cs(this);rb()"><span class="cv" id="xc-v">#0066ff</span></div></div>
         <div class="div"></div>
         <div class="sec">GEOMETRY</div>
-        <div class="f"><label>Room Size <span class="val" id="sz-v">40</span></label>
-          <input type="range" id="rsz" min="20" max="80" step="5" value="40" oninput="sv('rsz','sz-v',0);rb()"></div>
-        <div class="f"><label>Wall Height <span class="val" id="wh-v">14</span></label>
-          <input type="range" id="wh" min="8" max="28" step="1" value="14" oninput="sv('wh','wh-v',0);rb()"></div>
+        <div class="scrub" id="rsz-s"><div class="scrub-fill"></div><span class="scrub-lbl">Room Size</span><input type="number" class="scrub-inp" id="rsz" value="40" step="5"></div>
+        <div class="scrub" id="wh-s"><div class="scrub-fill"></div><span class="scrub-lbl">Wall Height</span><input type="number" class="scrub-inp" id="wh" value="14" step="1"></div>
       </div>
 
       <div class="panel" id="p-icons">
@@ -256,8 +278,9 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:11px;
     <canvas id="c"></canvas>
     <div id="pvsc"></div>
     <div id="pvlbl">LIVE PREVIEW</div>
-    <div id="pvhint">drag to orbit · scroll to zoom</div>
+    <div id="pvhint">WASD·QE move | RMB look | LMB select·gizmo | T/R/S mode</div>
     <div id="pvinfo"></div>
+    <div id="gizmo-mode"></div>
   </div>
 </div>
 
@@ -312,15 +335,16 @@ function ap(key){
   const p=PRESETS[key]; if(!p) return;
   $('pmenu').classList.remove('open');
   si('fc',p.fog); $('fc-v').textContent=p.fog;
-  $('fd').value=p.fd; $('fd-v').textContent=p.fd.toFixed(3);
+  $('fd').value=p.fd;
   $('stars').checked=p.stars;
   S.sky=p.sky.map(s=>({...s})); rSky();
   si('ac',p.ambC); $('ac-v').textContent=p.ambC;
-  $('ai').value=p.ambI; $('ai-v').textContent=p.ambI.toFixed(2);
+  $('ai').value=p.ambI;
   S.lights=p.lights.map(l=>({...l})); rLights();
   [['f1',p.f1],['f2',p.f2],['w1',p.w1],['w2',p.w2],['gc',p.gc],['xc',p.xc]].forEach(([id,val])=>{
     si(id,val); $(id+'-v').textContent=val;
   });
+  bindStaticScrubs();
   rb();
 }
 
@@ -350,14 +374,17 @@ function rLights(){
     const d=document.createElement('div'); d.className='card';
     d.innerHTML=`<div class="ch">LIGHT ${i+1}<button class="del" onclick="S.lights.splice(${i},1);rLights();rb()">✕</button></div>
     <div class="f"><label>Color</label><div class="cr"><input type="color" value="${l.color}" oninput="S.lights[${i}].color=this.value;cs(this);rb()"><span class="cv">${l.color}</span></div></div>
-    <div class="f"><label>Intensity <span class="val">${l.i.toFixed(1)}</span></label>
-      <input type="range" min="0" max="10" step="0.1" value="${l.i}" oninput="S.lights[${i}].i=parseFloat(this.value);this.previousElementSibling.querySelector('.val').textContent=parseFloat(this.value).toFixed(1);rb()"></div>
-    <div class="f"><label>Position</label><div class="r3">
-      <div><label>X</label><input type="number" step="1" value="${l.x}" oninput="S.lights[${i}].x=parseFloat(this.value)||0;rb()"></div>
-      <div><label>Y</label><input type="number" step="1" value="${l.y}" oninput="S.lights[${i}].y=parseFloat(this.value)||0;rb()"></div>
-      <div><label>Z</label><input type="number" step="1" value="${l.z}" oninput="S.lights[${i}].z=parseFloat(this.value)||0;rb()"></div>
-    </div></div>`;
+    <div class="scrub" id="li-${i}-s"><div class="scrub-fill"></div><span class="scrub-lbl">Intensity</span><input type="number" class="scrub-inp" id="li-${i}" value="${l.i.toFixed(1)}" step="0.1"></div>
+    <div class="f"><label>Position</label>
+    <div class="scrub" id="lx-${i}-s"><div class="scrub-fill"></div><span class="scrub-lbl">X</span><input type="number" class="scrub-inp" id="lx-${i}" value="${l.x}" step="0.5"></div>
+    <div class="scrub" id="ly-${i}-s"><div class="scrub-fill"></div><span class="scrub-lbl">Y</span><input type="number" class="scrub-inp" id="ly-${i}" value="${l.y}" step="0.5"></div>
+    <div class="scrub" id="lz-${i}-s"><div class="scrub-fill"></div><span class="scrub-lbl">Z</span><input type="number" class="scrub-inp" id="lz-${i}" value="${l.z}" step="0.5"></div>
+    </div>`;
     el.appendChild(d);
+  });
+  // bind scrubbers for each light
+  S.lights.forEach((_,i)=>{
+    bindLightScrub(i);
   });
 }
 function addLight(){ S.lights.push({color:'#ffffff',i:1,x:0,y:6,z:0}); rLights(); rb(); }
@@ -462,14 +489,14 @@ function importRoom(def){
   $('ri').value=def.id||'my_room';
 
   // ── Geometry ───────────────────────────────────────
-  if(def.sz!=null){ $('rsz').value=def.sz; $('sz-v').textContent=def.sz; }
-  if(def.wallH!=null){ $('wh').value=def.wallH; $('wh-v').textContent=def.wallH; }
+  if(def.sz!=null){ $('rsz').value=def.sz; }
+  if(def.wallH!=null){ $('wh').value=def.wallH; }
 
   // ── Fog ────────────────────────────────────────────
   const fogHex=i2h(def.fog??0x000510);
   si('fc',fogHex);
   const fd=def.fogD??0.008;
-  $('fd').value=fd; $('fd-v').textContent=fd.toFixed(3);
+  $('fd').value=fd;
 
   // ── Sky gradient ───────────────────────────────────
   if(Array.isArray(def.sky)&&def.sky.length){
@@ -483,7 +510,7 @@ function importRoom(def){
   // ── Ambient light ──────────────────────────────────
   if(Array.isArray(def.ambient)&&def.ambient.length>=2){
     si('ac',i2h(def.ambient[0]));
-    $('ai').value=def.ambient[1]; $('ai-v').textContent=def.ambient[1].toFixed(2);
+    $('ai').value=def.ambient[1];
   }
 
   // ── Point lights  {c:int, i, p:[x,y,z]} ───────────
@@ -532,6 +559,7 @@ function importRoom(def){
   }
 
   renderShapeCards();
+  bindStaticScrubs();
   rb();
 }
 
@@ -543,6 +571,191 @@ if(!S.groups)S.groups=[];
 if(!S.deskObjects)S.deskObjects=[];
 S.selectedObject=null;
 S.selectedType=null;
+
+// ═══════════════════════════════════════════════════
+// HYBRID SCRUBBER ENGINE — Pointer Delta + Pixel Threshold
+// ═══════════════════════════════════════════════════
+function makeScrub(el, opts) {
+  // opts: { get, set, min, max, step, dec, onChange }
+  if (!el) return;
+  
+  const inp  = el.querySelector('.scrub-inp');
+  const fill = el.querySelector('.scrub-fill');
+  const lbl  = el.querySelector('.scrub-lbl');
+  
+  // State
+  let isDragging      = false;
+  let isClickMode     = false;
+  let dragStartX      = 0;
+  let dragDeltaX      = 0;
+  let dragAccum       = 0;
+  const PIXEL_THRESHOLD = 4; // Distance to distinguish click vs drag
+  
+  function clamp(v) {
+    if (opts.min !== undefined) v = Math.max(opts.min, v);
+    if (opts.max !== undefined) v = Math.min(opts.max, v);
+    return v;
+  }
+  
+  function snap(v) {
+    const d = opts.dec ?? 4;
+    return parseFloat((Math.round(v / opts.step) * opts.step).toFixed(d));
+  }
+  
+  function updateFill() {
+    if (!fill || opts.min == null || opts.max == null) return;
+    const pct = Math.max(0, Math.min(1, (opts.get() - opts.min) / (opts.max - opts.min)));
+    fill.style.width = (pct * 100) + '%';
+  }
+  
+  function apply(val) {
+    val = snap(clamp(val));
+    opts.set(val);
+    inp.value = val;
+    updateFill();
+    opts.onChange?.();
+  }
+  
+  function enterFocusMode() {
+    isClickMode = true;
+    el.classList.add('focus-mode');
+    inp.blur(); // Clear any existing focus state
+    setTimeout(() => inp.focus(), 0);
+    inp.select();
+  }
+  
+  function exitDragMode() {
+    isDragging = false;
+    dragAccum = 0;
+    el.classList.remove('dragging');
+    if (isClickMode) {
+      // Stay in click mode, allow typing
+    } else {
+      inp.blur();
+      el.classList.remove('focus-mode');
+    }
+  }
+  
+  // Initialize display
+  inp.value = opts.get();
+  updateFill();
+  
+  // Mouse down: Start drag or prepare for click
+  el.addEventListener('mousedown', e => {
+    if (document.activeElement === inp) return; // Already typing
+    e.preventDefault();
+    isDragging = false;
+    isClickMode = false;
+    dragStartX = e.clientX;
+    dragDeltaX = 0;
+    dragAccum = 0;
+    
+    // Global mousemove and mouseup listeners
+    const onGlobalMove = e => {
+      dragDeltaX = e.clientX - dragStartX;
+      
+      // Check if we've crossed the pixel threshold
+      if (!isDragging && Math.abs(dragDeltaX) >= PIXEL_THRESHOLD) {
+        isDragging = true;
+        isClickMode = false;
+        el.classList.add('dragging');
+        inp.blur(); // Prevent text cursor during drag
+      }
+      
+      if (isDragging) {
+        dragAccum += e.movementX * opts.step;
+        if (Math.abs(dragAccum) >= opts.step * 0.5) {
+          apply(opts.get() + dragAccum);
+          dragAccum = 0;
+        }
+      }
+    };
+    
+    const onGlobalUp = e => {
+      // Remove global listeners
+      window.removeEventListener('mousemove', onGlobalMove);
+      window.removeEventListener('mouseup', onGlobalUp);
+      
+      if (isDragging) {
+        // Finish dragging
+        exitDragMode();
+      } else if (!isClickMode) {
+        // Threshold not crossed, enter click/type mode
+        enterFocusMode();
+      }
+    };
+    
+    window.addEventListener('mousemove', onGlobalMove);
+    window.addEventListener('mouseup', onGlobalUp);
+  });
+  
+  // Input change events
+  inp.addEventListener('change', () => {
+    apply(parseFloat(inp.value) || 0);
+  });
+  
+  inp.addEventListener('blur', () => {
+    isClickMode = false;
+    el.classList.remove('focus-mode');
+  });
+  
+  // Keyboard navigation
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      apply(opts.get() + opts.step);
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      apply(opts.get() - opts.step);
+    }
+    if (e.key === 'Enter') {
+      inp.blur();
+    }
+  });
+}
+
+// ── Static panel scrubbers (ATMO + MATS) ────────────
+function bindStaticScrubs() {
+  makeScrub($('fd-s'),  { get:()=>fv('fd'),  set:v=>{$('fd').value=v},  min:0,    max:.05, step:.001, dec:3, onChange:rb });
+  makeScrub($('ai-s'),  { get:()=>fv('ai'),  set:v=>{$('ai').value=v},  min:0,    max:3,   step:.05,  dec:2, onChange:rb });
+  makeScrub($('rsz-s'), { get:()=>fv('rsz'), set:v=>{$('rsz').value=v}, min:20,   max:80,  step:1,    dec:0, onChange:rb });
+  makeScrub($('wh-s'),  { get:()=>fv('wh'),  set:v=>{$('wh').value=v},  min:8,    max:28,  step:1,    dec:0, onChange:rb });
+}
+
+// ── Per-light scrubbers (intensity + XYZ) ───────────
+function bindLightScrub(i) {
+  makeScrub($(`li-${i}-s`), { get:()=>S.lights[i].i,  set:v=>S.lights[i].i=v,  min:0, max:10, step:.1, dec:1, onChange:rb });
+  makeScrub($(`lx-${i}-s`), { get:()=>S.lights[i].x,  set:v=>S.lights[i].x=v,  step:.5, dec:2, onChange:rb });
+  makeScrub($(`ly-${i}-s`), { get:()=>S.lights[i].y,  set:v=>S.lights[i].y=v,  min:0, step:.5, dec:2, onChange:rb });
+  makeScrub($(`lz-${i}-s`), { get:()=>S.lights[i].z,  set:v=>S.lights[i].z=v,  step:.5, dec:2, onChange:rb });
+}
+
+// ── Per-shape material scrubbers ────────────────────
+function bindShapeScrub(shape) {
+  makeScrub($(`sr-${shape.id}`), { get:()=>shape.roughness,        set:v=>updateShapeProperty(shape.id,'roughness',v),        min:0, max:1, step:.01, dec:2 });
+  makeScrub($(`sm-${shape.id}`), { get:()=>shape.metalness,        set:v=>updateShapeProperty(shape.id,'metalness',v),        min:0, max:1, step:.01, dec:2 });
+  makeScrub($(`se-${shape.id}`), { get:()=>shape.emissiveIntensity,set:v=>updateShapeProperty(shape.id,'emissiveIntensity',v),min:0, max:2, step:.01, dec:2 });
+}
+
+// ── Transform scrubbers (position / rotation / scale) ─
+function bindTransformScrubs(obj) {
+  const id = obj.id;
+  // Position (unbounded — no fill bar)
+  makeScrub($('tx-s'), { get:()=>obj.x, set:v=>updateObjectProperty(id,'x',v), step:.1, dec:2, onChange:()=>renderTransformControls() });
+  makeScrub($('ty-s'), { get:()=>obj.y, set:v=>updateObjectProperty(id,'y',v), step:.1, dec:2, onChange:()=>renderTransformControls() });
+  makeScrub($('tz-s'), { get:()=>obj.z, set:v=>updateObjectProperty(id,'z',v), step:.1, dec:2, onChange:()=>renderTransformControls() });
+  // Rotation (degrees stored, converted to radians)
+  const toDeg = r => parseFloat((r * 180/Math.PI).toFixed(1));
+  const toRad = d => d * Math.PI/180;
+  makeScrub($('trx-s'), { get:()=>toDeg(obj.rx), set:v=>updateObjectProperty(id,'rx',toRad(v)), min:0, max:360, step:1, dec:0 });
+  makeScrub($('try-s'), { get:()=>toDeg(obj.ry), set:v=>updateObjectProperty(id,'ry',toRad(v)), min:0, max:360, step:1, dec:0 });
+  makeScrub($('trz-s'), { get:()=>toDeg(obj.rz), set:v=>updateObjectProperty(id,'rz',toRad(v)), min:0, max:360, step:1, dec:0 });
+  // Scale
+  makeScrub($('tsx-s'), { get:()=>obj.sx, set:v=>updateObjectProperty(id,'sx',v), min:.05, max:10, step:.1, dec:2 });
+  makeScrub($('tsy-s'), { get:()=>obj.sy, set:v=>updateObjectProperty(id,'sy',v), min:.05, max:10, step:.1, dec:2 });
+  makeScrub($('tsz-s'), { get:()=>obj.sz, set:v=>updateObjectProperty(id,'sz',v), min:.05, max:10, step:.1, dec:2 });
+}
 
 const canvas=$('c');
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
@@ -584,7 +797,7 @@ function showShapeMenu(){$('shape-menu').style.display=$('shape-menu').style.dis
 
 function createShape(type){
   const id=`shape_${String(S.shapes.length+1).padStart(3,'0')}`;
-  S.shapes.push({id,type,color:'#ff8800',roughness:0.5,metalness:0,emissiveColor:'#000000',emissiveIntensity:0,x:0,y:1,z:0,rx:0,ry:0,rz:0,sx:1,sy:1,sz:1,group:null});
+  S.shapes.push({id,type,color:'#ff8800',roughness:0.5,metalness:0,emissiveColor:'#000000',emissiveIntensity:0,x:0,y:0,z:0,rx:0,ry:0,rz:0,sx:1,sy:1,sz:1,group:null});
   selectShape(id);
   $('shape-menu').style.display='none';
   rb();
@@ -595,6 +808,7 @@ function selectShape(shapeId){
   S.selectedType='shape';
   renderShapeCards();
   renderTransformControls();
+  attachGizmoToObject(S.selectedObject);
   rb();
 }
 
@@ -603,6 +817,7 @@ function selectGroup(groupId){
   S.selectedType='group';
   renderShapeCards();
   renderTransformControls();
+  attachGizmoToObject(S.selectedObject);
   rb();
 }
 
@@ -611,6 +826,7 @@ function deleteShape(shapeId){
   S.groups.forEach(g=>{g.shapeIds=g.shapeIds.filter(id=>id!==shapeId)});
   S.groups=S.groups.filter(g=>g.shapeIds.length>0);
   S.selectedObject=null;
+  detachGizmo();
   renderShapeCards();
   rb();
 }
@@ -620,6 +836,7 @@ function deleteGroup(groupId){
   if(group){group.shapeIds.forEach(id=>{const s=S.shapes.find(sh=>sh.id===id);if(s)s.group=null})}
   S.groups=S.groups.filter(g=>g.id!==groupId);
   S.selectedObject=null;
+  detachGizmo();
   renderShapeCards();
   rb();
 }
@@ -636,12 +853,14 @@ function selectDeskObject(objId){
   S.selectedType='deskObject';
   renderShapeCards();
   renderTransformControls();
+  attachGizmoToObject(S.selectedObject);
   rb();
 }
 
 function deleteDeskObject(objId){
   S.deskObjects=S.deskObjects.filter(o=>o.id!==objId);
   S.selectedObject=null;
+  detachGizmo();
   renderShapeCards();
   rb();
 }
@@ -649,12 +868,29 @@ function deleteDeskObject(objId){
 function createShapeMesh(shape){
   let geometry;
   switch(shape.type.toLowerCase()){
-    case'cube':geometry=new THREE.BoxGeometry(1,1,1);break;
-    case'sphere':geometry=new THREE.SphereGeometry(0.5,32,32);break;
-    case'cylinder':geometry=new THREE.CylinderGeometry(0.5,0.5,1,32);break;
-    case'torus':geometry=new THREE.TorusGeometry(0.5,0.2,16,100);break;
-    case'plane':geometry=new THREE.PlaneGeometry(1,1);break;
-    default:geometry=new THREE.BoxGeometry(1,1,1);
+    case'cube':
+      geometry=new THREE.BoxGeometry(1,1,1);
+      geometry.translate(0,0.5,0);
+      break;
+    case'sphere':
+      geometry=new THREE.SphereGeometry(0.5,32,32);
+      geometry.translate(0,0.5,0);
+      break;
+    case'cylinder':
+      geometry=new THREE.CylinderGeometry(0.5,0.5,1,32);
+      geometry.translate(0,0.5,0);
+      break;
+    case'torus':
+      geometry=new THREE.TorusGeometry(0.5,0.2,16,100);
+      geometry.translate(0,0.2,0);
+      break;
+    case'plane':
+      geometry=new THREE.PlaneGeometry(1,1);
+      geometry.translate(0,0.5,0);
+      break;
+    default:
+      geometry=new THREE.BoxGeometry(1,1,1);
+      geometry.translate(0,0.5,0);
   }
   const material=new THREE.MeshStandardMaterial({color:h2i(shape.color),roughness:shape.roughness,metalness:shape.metalness,emissive:h2i(shape.emissiveColor),emissiveIntensity:shape.emissiveIntensity,side:THREE.DoubleSide});
   const mesh=new THREE.Mesh(geometry,material);
@@ -664,6 +900,7 @@ function createShapeMesh(shape){
   mesh.castShadow=true;
   mesh.receiveShadow=true;
   mesh.userData.shapeId=shape.id;
+  mesh.userData.selectableId=shape.id;
   return mesh;
 }
 
@@ -674,9 +911,15 @@ function renderShapeCards(){
     const card=document.createElement('div');
     card.className='card';
     if(S.selectedObject?.id===shape.id)card.style.background='rgba(255,130,0,.25)';
-    card.innerHTML=`<div class="ch"><span>${shape.type.charAt(0).toUpperCase()+shape.type.slice(1)} #${shape.id.split('_')[1]}</span><button class="del" onclick="deleteShape('${shape.id}')">✕</button></div><div class="cr"><input type="color" value="${shape.color}" onchange="updateShapeProperty('${shape.id}','color',this.value)"><span class="cv">${shape.color}</span></div><div class="f"><label>Roughness</label><input type="range" min="0" max="1" step="0.01" value="${shape.roughness}" oninput="updateShapeProperty('${shape.id}','roughness',parseFloat(this.value))"><span class="val">${parseFloat(shape.roughness).toFixed(2)}</span></div><div class="f"><label>Metalness</label><input type="range" min="0" max="1" step="0.01" value="${shape.metalness}" oninput="updateShapeProperty('${shape.id}','metalness',parseFloat(this.value))"><span class="val">${parseFloat(shape.metalness).toFixed(2)}</span></div><div class="cr"><input type="color" value="${shape.emissiveColor}" onchange="updateShapeProperty('${shape.id}','emissiveColor',this.value)"><span class="cv">${shape.emissiveColor}</span></div><div class="f"><label>Emissive Int</label><input type="range" min="0" max="2" step="0.01" value="${shape.emissiveIntensity}" oninput="updateShapeProperty('${shape.id}','emissiveIntensity',parseFloat(this.value))"><span class="val">${parseFloat(shape.emissiveIntensity).toFixed(2)}</span></div>`;
+    card.innerHTML=`<div class="ch"><span>${shape.type.charAt(0).toUpperCase()+shape.type.slice(1)} #${shape.id.split('_')[1]}</span><button class="del" onclick="deleteShape('${shape.id}')">✕</button></div>
+<div class="cr"><input type="color" value="${shape.color}" onchange="updateShapeProperty('${shape.id}','color',this.value)"><span class="cv">${shape.color}</span></div>
+<div class="scrub" id="sr-${shape.id}"><div class="scrub-fill"></div><span class="scrub-lbl">Roughness</span><input type="number" class="scrub-inp" value="${shape.roughness.toFixed(2)}" step="0.01"></div>
+<div class="scrub" id="sm-${shape.id}"><div class="scrub-fill"></div><span class="scrub-lbl">Metalness</span><input type="number" class="scrub-inp" value="${shape.metalness.toFixed(2)}" step="0.01"></div>
+<div class="cr"><input type="color" value="${shape.emissiveColor}" onchange="updateShapeProperty('${shape.id}','emissiveColor',this.value)"><span class="cv">${shape.emissiveColor}</span></div>
+<div class="scrub" id="se-${shape.id}"><div class="scrub-fill"></div><span class="scrub-lbl">Emissive</span><input type="number" class="scrub-inp" value="${shape.emissiveIntensity.toFixed(2)}" step="0.01"></div>`;
     card.onclick=()=>selectShape(shape.id);
     container.appendChild(card);
+    bindShapeScrub(shape);
   });
   S.deskObjects.forEach(obj=>{
     const card=document.createElement('div');
@@ -694,7 +937,21 @@ function renderTransformControls(){
   const obj=S.selectedObject;
   const ctrl=$('transform-controls');
   ctrl.style.display='block';
-  ctrl.innerHTML=`<div class="sec">POSITION</div><div class="r3"><div><label>X</label><input type="number" step="0.1" value="${obj.x.toFixed(2)}" oninput="updateObjectProperty('${obj.id}','x',parseFloat(this.value))"></div><div><label>Y</label><input type="number" step="0.1" value="${obj.y.toFixed(2)}" oninput="updateObjectProperty('${obj.id}','y',parseFloat(this.value))"></div><div><label>Z</label><input type="number" step="0.1" value="${obj.z.toFixed(2)}" oninput="updateObjectProperty('${obj.id}','z',parseFloat(this.value))"></div></div><div class="sec">ROTATION (°)</div><div class="r3"><div><label>X</label><input type="range" min="0" max="360" step="1" value="${(obj.rx*180/Math.PI).toFixed(0)}" oninput="updateObjectProperty('${obj.id}','rx',parseFloat(this.value)*Math.PI/180)"><span class="val">${(obj.rx*180/Math.PI).toFixed(0)}°</span></div><div><label>Y</label><input type="range" min="0" max="360" step="1" value="${(obj.ry*180/Math.PI).toFixed(0)}" oninput="updateObjectProperty('${obj.id}','ry',parseFloat(this.value)*Math.PI/180)"><span class="val">${(obj.ry*180/Math.PI).toFixed(0)}°</span></div><div><label>Z</label><input type="range" min="0" max="360" step="1" value="${(obj.rz*180/Math.PI).toFixed(0)}" oninput="updateObjectProperty('${obj.id}','rz',parseFloat(this.value)*Math.PI/180)"><span class="val">${(obj.rz*180/Math.PI).toFixed(0)}°</span></div></div><div class="sec">SCALE</div><div class="r3"><div><label>X</label><input type="range" min="0.1" max="5" step="0.1" value="${obj.sx.toFixed(1)}" oninput="updateObjectProperty('${obj.id}','sx',parseFloat(this.value))"><span class="val">${obj.sx.toFixed(1)}</span></div><div><label>Y</label><input type="range" min="0.1" max="5" step="0.1" value="${obj.sy.toFixed(1)}" oninput="updateObjectProperty('${obj.id}','sy',parseFloat(this.value))"><span class="val">${obj.sy.toFixed(1)}</span></div><div><label>Z</label><input type="range" min="0.1" max="5" step="0.1" value="${obj.sz.toFixed(1)}" oninput="updateObjectProperty('${obj.id}','sz',parseFloat(this.value))"><span class="val">${obj.sz.toFixed(1)}</span></div></div>`;
+  ctrl.innerHTML=`
+<div class="sec">POSITION</div>
+<div class="scrub" id="tx-s"><div class="scrub-fill"></div><span class="scrub-lbl">X</span><input type="number" class="scrub-inp" id="tx" value="${obj.x.toFixed(2)}" step="0.1"></div>
+<div class="scrub" id="ty-s"><div class="scrub-fill"></div><span class="scrub-lbl">Y</span><input type="number" class="scrub-inp" id="ty" value="${obj.y.toFixed(2)}" step="0.1"></div>
+<div class="scrub" id="tz-s"><div class="scrub-fill"></div><span class="scrub-lbl">Z</span><input type="number" class="scrub-inp" id="tz" value="${obj.z.toFixed(2)}" step="0.1"></div>
+<div class="sec">ROTATION (°)</div>
+<div class="scrub" id="trx-s"><div class="scrub-fill"></div><span class="scrub-lbl">X°</span><input type="number" class="scrub-inp" id="trx" value="${(obj.rx*180/Math.PI).toFixed(0)}" step="1"></div>
+<div class="scrub" id="try-s"><div class="scrub-fill"></div><span class="scrub-lbl">Y°</span><input type="number" class="scrub-inp" id="try" value="${(obj.ry*180/Math.PI).toFixed(0)}" step="1"></div>
+<div class="scrub" id="trz-s"><div class="scrub-fill"></div><span class="scrub-lbl">Z°</span><input type="number" class="scrub-inp" id="trz" value="${(obj.rz*180/Math.PI).toFixed(0)}" step="1"></div>
+<div class="sec">SCALE</div>
+<div class="scrub" id="tsx-s"><div class="scrub-fill"></div><span class="scrub-lbl">X</span><input type="number" class="scrub-inp" id="tsx" value="${obj.sx.toFixed(2)}" step="0.1"></div>
+<div class="scrub" id="tsy-s"><div class="scrub-fill"></div><span class="scrub-lbl">Y</span><input type="number" class="scrub-inp" id="tsy" value="${obj.sy.toFixed(2)}" step="0.1"></div>
+<div class="scrub" id="tsz-s"><div class="scrub-fill"></div><span class="scrub-lbl">Z</span><input type="number" class="scrub-inp" id="tsz" value="${obj.sz.toFixed(2)}" step="0.1"></div>`;
+  // bind transform scrubbers
+  bindTransformScrubs(obj);
 }
 
 function updateShapeProperty(shapeId,prop,value){
@@ -771,6 +1028,7 @@ function rb(){
     [[0,H/2,W/2+.04,H,.08,.08],[0,H/2,-W/2-.04,H,.08,.08],[0,0,0,.08,W+.16,.08],[0,H,0,.08,W+.16,.08]].forEach(([px,py,pz,gh,gw,gz])=>{
       const b=new THREE.Mesh(new THREE.BoxGeometry(gw,gh,gz),pm.clone()); b.position.set(px,py,pz); grp.add(b);
     });
+    grp.userData.selectableId=`portal_${pd.x}_${pd.z}`;
     scene.add(grp); pvO.push(grp);
   });
 
@@ -808,6 +1066,7 @@ function rb(){
       geom.rotation.set(obj.rx,obj.ry,obj.rz);
       geom.scale.set(obj.sx,obj.sy,obj.sz);
       geom.userData.deskObjId=obj.id;
+      geom.userData.selectableId=obj.id;
       geom.castShadow=true;
       add(geom);
     }
@@ -825,65 +1084,194 @@ function rb(){
 }
 
 // ═══════════════════════════════════════════════════
-// ORBIT CONTROLS
+// 6-DOF FLY CAMERA
 // ═══════════════════════════════════════════════════
-let drag=false,lx=0,ly=0,theta=.3,phi=.28,radius=22;
-canvas.addEventListener('mousedown',e=>{drag=true;lx=e.clientX;ly=e.clientY;});
-window.addEventListener('mouseup',()=>drag=false);
-window.addEventListener('mousemove',e=>{
-  if(!drag)return;
-  theta-=(e.clientX-lx)*.007; phi=Math.max(.04,Math.min(Math.PI*.47,phi-(e.clientY-ly)*.005));
-  lx=e.clientX;ly=e.clientY;
-});
-canvas.addEventListener('wheel',e=>{radius=Math.max(3,Math.min(44,radius+e.deltaY*.018));},{passive:true});
 
-function updCam(){
-  camera.position.x=radius*Math.sin(theta)*Math.cos(phi);
-  camera.position.y=radius*Math.sin(phi)+2;
-  camera.position.z=radius*Math.cos(theta)*Math.cos(phi);
-  camera.lookAt(0,2.5,0);
+// Fly camera state
+const flyCamera = {
+  pos: new THREE.Vector3(0, 1.7, 20),
+  yaw: 0,
+  pitch: 0,
+  speed: 0.15,
+  keys: {}
+};
+
+function updateFlyCamera() {
+  const forward = new THREE.Vector3(0, 0, -1);
+  const right = new THREE.Vector3(1, 0, 0);
+  const up = new THREE.Vector3(0, 1, 0);
+  
+  forward.applyAxisAngle(up, flyCamera.yaw);
+  right.applyAxisAngle(up, flyCamera.yaw);
+  
+  const moveDir = new THREE.Vector3();
+  if (flyCamera.keys['w'] || flyCamera.keys['W']) moveDir.addScaledVector(forward, flyCamera.speed);
+  if (flyCamera.keys['s'] || flyCamera.keys['S']) moveDir.addScaledVector(forward, -flyCamera.speed);
+  if (flyCamera.keys['a'] || flyCamera.keys['A']) moveDir.addScaledVector(right, -flyCamera.speed);
+  if (flyCamera.keys['d'] || flyCamera.keys['D']) moveDir.addScaledVector(right, flyCamera.speed);
+  if (flyCamera.keys['q'] || flyCamera.keys['Q']) moveDir.y -= flyCamera.speed;
+  if (flyCamera.keys['e'] || flyCamera.keys['E']) moveDir.y += flyCamera.speed;
+  
+  flyCamera.pos.add(moveDir);
+  
+  camera.position.copy(flyCamera.pos);
+  const viewDir = new THREE.Vector3(0, 0, -1);
+  viewDir.applyAxisAngle(up, flyCamera.yaw);
+  const camPitch = new THREE.Vector3(1, 0, 0);
+  camPitch.applyAxisAngle(up, flyCamera.yaw);
+  viewDir.applyAxisAngle(camPitch, flyCamera.pitch);
+  camera.lookAt(flyCamera.pos.clone().add(viewDir));
 }
 
-// ═══════════════════════════════════════════════════
-// DRAG AND DROP WITH RAYCASTING
-// ═══════════════════════════════════════════════════
-canvas.addEventListener('mousedown',e=>{
-  if(e.button!==0)return;
-  mouse.x=(e.clientX/canvas.clientWidth)*2-1;
-  mouse.y=-(e.clientY/canvas.clientHeight)*2+1;
-  raycaster.setFromCamera(mouse,camera);
-  const intersects=raycaster.intersectObjects(scene.children,true);
-  for(let int of intersects){
-    let obj=int.object;
-    while(obj&&!obj.userData.shapeId&&!obj.userData.deskObjId){obj=obj.parent}
-    if(obj&&obj.userData.shapeId){selectShape(obj.userData.shapeId);mouseDown=true;dragOffset=int.point.clone().sub(obj.position);dragPlane.setFromNormalAndCoplanarPoint(camera.getWorldDirection(new THREE.Vector3()),obj.position);break}
-    if(obj&&obj.userData.deskObjId){selectDeskObject(obj.userData.deskObjId);mouseDown=true;dragOffset=int.point.clone().sub(obj.position);dragPlane.setFromNormalAndCoplanarPoint(camera.getWorldDirection(new THREE.Vector3()),obj.position);break}
+// Right-click look with pointer lock
+let isRightClickLooking = false;
+const lookSensitivity = 0.005;
+
+document.addEventListener('mousedown', e => {
+  if (e.button === 2) { // Right mouse button
+    isRightClickLooking = true;
+    canvas.requestPointerLock = canvas.requestPointerLock || canvas.mozRequestPointerLock;
+    canvas.requestPointerLock();
   }
 });
-window.addEventListener('mousemove',e=>{
-  if(!mouseDown||!S.selectedObject)return;
-  mouse.x=(e.clientX/canvas.clientWidth)*2-1;
-  mouse.y=-(e.clientY/canvas.clientHeight)*2+1;
-  raycaster.setFromCamera(mouse,camera);
-  raycaster.ray.intersectPlane(dragPlane,dragPoint);
-  const newPos=dragPoint.clone().sub(dragOffset);
-  S.selectedObject.x=parseFloat(newPos.x.toFixed(2));
-  S.selectedObject.y=parseFloat(newPos.y.toFixed(2));
-  S.selectedObject.z=parseFloat(newPos.z.toFixed(2));
+
+document.addEventListener('mouseup', e => {
+  if (e.button === 2) {
+    isRightClickLooking = false;
+    document.exitPointerLock = document.exitPointerLock || document.mozExitPointerLock;
+    document.exitPointerLock();
+  }
+});
+
+document.addEventListener('mousemove', e => {
+  if (!isRightClickLooking) return;
+  flyCamera.yaw -= e.movementX * lookSensitivity;
+  flyCamera.pitch -= e.movementY * lookSensitivity;
+  flyCamera.pitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, flyCamera.pitch));
+});
+
+document.addEventListener('keydown', e => {
+  flyCamera.keys[e.key] = true;
+});
+
+document.addEventListener('keyup', e => {
+  flyCamera.keys[e.key] = false;
+});
+
+// ═══════════════════════════════════════════════════
+// TRANSFORM GIZMO
+// ═══════════════════════════════════════════════════
+let transformControls = null;
+let isGizmoDragging = false;
+
+function initTransformGizmo() {
+  if (!transformControls) {
+    transformControls = new THREE.TransformControls(camera, canvas);
+    scene.add(transformControls);
+    
+    transformControls.addEventListener('dragging-changed', event => {
+      isGizmoDragging = event.value;
+      if (isGizmoDragging) {
+        $('gizmo-mode').innerHTML = `<span style="color:#00ff88">⬤ GIZMO ACTIVE</span>`;
+      } else {
+        syncGizmoToState();
+        $('gizmo-mode').innerHTML = '';
+      }
+    });
+  }
+}
+
+function syncGizmoToState() {
+  if (!S.selectedObject || !transformControls.object) return;
+  
+  const obj = S.selectedObject;
+  obj.x = parseFloat(transformControls.object.position.x.toFixed(2));
+  obj.y = parseFloat(transformControls.object.position.y.toFixed(2));
+  obj.z = parseFloat(transformControls.object.position.z.toFixed(2));
+  obj.rx = transformControls.object.rotation.x;
+  obj.ry = transformControls.object.rotation.y;
+  obj.rz = transformControls.object.rotation.z;
+  obj.sx = parseFloat(transformControls.object.scale.x.toFixed(2));
+  obj.sy = parseFloat(transformControls.object.scale.y.toFixed(2));
+  obj.sz = parseFloat(transformControls.object.scale.z.toFixed(2));
+  
   renderTransformControls();
   rb();
+}
+
+function attachGizmoToObject(obj) {
+  if (!transformControls) initTransformGizmo();
+  
+  let targetMesh = null;
+  scene.traverse(sceneObj => {
+    if (sceneObj.userData.selectableId === obj.id) {
+      targetMesh = sceneObj;
+    }
+  });
+  
+  if (targetMesh) {
+    transformControls.attach(targetMesh);
+    transformControls.setMode('translate');
+    $('gizmo-mode').innerHTML = `<span style="color:#ffcc44">T</span>`;
+  }
+}
+
+function detachGizmo() {
+  if (transformControls && transformControls.object) {
+    transformControls.detach();
+  }
+  $('gizmo-mode').innerHTML = '';
+}
+
+// Gizmo mode switching (T/R/S keys)
+document.addEventListener('keydown', e => {
+  if (transformControls && transformControls.object) {
+    if (e.key === 't' || e.key === 'T') {
+      transformControls.setMode('translate');
+      $('gizmo-mode').innerHTML = `<span style="color:#ffcc44">T</span>`;
+    }
+    if (e.key === 'r' || e.key === 'R') {
+      transformControls.setMode('rotate');
+      $('gizmo-mode').innerHTML = `<span style="color:#ffaa44">R</span>`;
+    }
+    if (e.key === 's' || e.key === 'S') {
+      transformControls.setMode('scale');
+      $('gizmo-mode').innerHTML = `<span style="color:#ff8844">S</span>`;
+    }
+  }
 });
-window.addEventListener('mouseup',()=>{mouseDown=false});
-canvas.style.cursor='auto';
-window.addEventListener('mousemove',e=>{
-  if(mouseDown){canvas.style.cursor='grabbing';return}
-  mouse.x=(e.clientX/canvas.clientWidth)*2-1;
-  mouse.y=-(e.clientY/canvas.clientHeight)*2+1;
-  raycaster.setFromCamera(mouse,camera);
-  const intersects=raycaster.intersectObjects(scene.children,true);
-  let hover=false;
-  for(let int of intersects){let obj=int.object;while(obj&&!obj.userData.shapeId&&!obj.userData.deskObjId){obj=obj.parent}if(obj&&(obj.userData.shapeId||obj.userData.deskObjId)){hover=true;break}}
-  canvas.style.cursor=hover?'grab':'auto';
+
+// ═══════════════════════════════════════════════════
+// RAYCASTING FOR SELECTION
+// ═══════════════════════════════════════════════════
+canvas.addEventListener('click', e => {
+  if (isGizmoDragging || isRightClickLooking) return;
+  
+  mouse.x = (e.clientX / canvas.clientWidth) * 2 - 1;
+  mouse.y = -(e.clientY / canvas.clientHeight) * 2 + 1;
+  raycaster.setFromCamera(mouse, camera);
+  
+  const intersects = raycaster.intersectObjects(scene.children, true);
+  for (let int of intersects) {
+    let obj = int.object;
+    while (obj && !obj.userData.selectableId) {
+      obj = obj.parent;
+    }
+    if (obj && obj.userData.selectableId) {
+      // Look for matching shape
+      let found = S.shapes.find(s => s.id === obj.userData.selectableId);
+      if (found) {
+        selectShape(found.id);
+        return;
+      }
+      // Look for matching desk object
+      found = S.deskObjects.find(d => d.id === obj.userData.selectableId);
+      if (found) {
+        selectDeskObject(found.id);
+        return;
+      }
+    }
+  }
 });
 
 // ═══════════════════════════════════════════════════
@@ -893,51 +1281,51 @@ function createDJDeskGeometry(){
   const group=new THREE.Group();
   const C={body:0x0a1428,deck:0x111c30,screen:0x000c1c,trim:0x00a0ff,btn:0x003060,knob:0x002244};
   
-  // Table body
+  // Table body (positioned so top is at y=1.05, bottom at y=0.96 → adjust for bottom pivot)
   const body=new THREE.Mesh(new THREE.BoxGeometry(6,0.18,3.2),new THREE.MeshStandardMaterial({color:C.body,roughness:.6,metalness:.4}));
-  body.position.set(0,1.05,0);group.add(body);
+  body.position.set(0,0.96,0);group.add(body);
   
-  // Legs
+  // Legs (adjusted downward to match body lowering)
   [[2.6,0,1.3],[2.6,0,-1.3],[-2.6,0,1.3],[-2.6,0,-1.3]].forEach(([x,y,z])=>{
     const leg=new THREE.Mesh(new THREE.BoxGeometry(.1,1.1,.1),new THREE.MeshStandardMaterial({color:0x001830,metalness:.7,roughness:.3}));
-    leg.position.set(x,.55,z);group.add(leg);
+    leg.position.set(x,.46,z);group.add(leg);
   });
   
-  // Vinyl platters
+  // Vinyl platters (adjusted downward for bottom pivot, 0.09 = half body height)
   const platter=new THREE.Mesh(new THREE.CylinderGeometry(.85,.88,.05,36),new THREE.MeshStandardMaterial({color:C.deck,roughness:.3,metalness:.6}));
-  platter.position.set(-1.5,1.16,0);group.add(platter);
+  platter.position.set(-1.5,1.07,0);group.add(platter);
   for(let r=.2;r<.8;r+=.12){
     const ring=new THREE.Mesh(new THREE.TorusGeometry(r,.008,8,36),new THREE.MeshStandardMaterial({color:0x001a30,roughness:.9}));
-    ring.rotation.x=Math.PI/2;ring.position.set(-1.5,1.195,0);group.add(ring);
+    ring.rotation.x=Math.PI/2;ring.position.set(-1.5,1.105,0);group.add(ring);
   }
   const label=new THREE.Mesh(new THREE.CylinderGeometry(.22,.22,.06,24),new THREE.MeshStandardMaterial({color:0xff3333,roughness:.5}));
-  label.position.set(-1.5,1.19,0);group.add(label);
-  const platterR=platter.clone();platterR.position.set(1.5,1.16,0);group.add(platterR);
-  const labelR=label.clone();labelR.material=label.material.clone();labelR.material.color.set(0x3366ff);labelR.position.set(1.5,1.19,0);group.add(labelR);
+  label.position.set(-1.5,1.1,0);group.add(label);
+  const platterR=platter.clone();platterR.position.set(1.5,1.07,0);group.add(platterR);
+  const labelR=label.clone();labelR.material=label.material.clone();labelR.material.color.set(0x3366ff);labelR.position.set(1.5,1.1,0);group.add(labelR);
   
-  // Screen (simple black plane)
+  // Screen (simple black plane, adjusted downward)
   const screen=new THREE.Mesh(new THREE.PlaneGeometry(3.2,2.0),new THREE.MeshStandardMaterial({color:0x000000,emissive:0x001a38,emissiveIntensity:.5,roughness:.15}));
-  screen.position.set(0,2.4,-.91);group.add(screen);
+  screen.position.set(0,2.31,-.91);group.add(screen);
   
-  // Buttons
+  // Buttons (adjusted downward)
   [[-2.0,'⏮'],[- 1.0,'▶'],[0.0,'⏹'],[1.0,'⏭'],[2.0,'📁']].forEach(([x,icon])=>{
     const bm=new THREE.Mesh(new THREE.BoxGeometry(.8,.44,.08),new THREE.MeshStandardMaterial({color:C.btn,emissive:C.btn,emissiveIntensity:.35,roughness:.3,metalness:.5}));
-    bm.position.set(x,1.27,-.92);group.add(bm);
+    bm.position.set(x,1.18,-.92);group.add(bm);
   });
   
-  // Crossfader
+  // Crossfader (adjusted downward)
   const cfTrack=new THREE.Mesh(new THREE.BoxGeometry(3,.04,.12),new THREE.MeshStandardMaterial({color:0x001428,metalness:.6}));
-  cfTrack.position.set(0,1.16,.4);group.add(cfTrack);
+  cfTrack.position.set(0,1.07,.4);group.add(cfTrack);
   const cfKnob=new THREE.Mesh(new THREE.BoxGeometry(.28,.14,.22),new THREE.MeshStandardMaterial({color:0x003366,emissive:0x003366,emissiveIntensity:.3,metalness:.7}));
-  cfKnob.position.set(0,1.22,.4);group.add(cfKnob);
+  cfKnob.position.set(0,1.13,.4);group.add(cfKnob);
   
-  // EQ knobs
+  // EQ knobs (adjusted downward)
   const knobGeo=new THREE.CylinderGeometry(.1,.1,.08,16);
-  for(let i=0;i<3;i++){[-1.6+i*.45,0.6+i*.45].forEach(kx=>{const k=new THREE.Mesh(knobGeo,new THREE.MeshStandardMaterial({color:C.knob,metalness:.8,roughness:.2}));k.position.set(kx,1.22,.8);group.add(k)})}
+  for(let i=0;i<3;i++){[-1.6+i*.45,0.6+i*.45].forEach(kx=>{const k=new THREE.Mesh(knobGeo,new THREE.MeshStandardMaterial({color:C.knob,metalness:.8,roughness:.2}));k.position.set(kx,1.13,.8);group.add(k)})}
   
-  // Glow lights
-  const glow=new THREE.PointLight(0x0088ff,2.5,6);glow.position.set(0,.8,0);group.add(glow);
-  const screenGlow=new THREE.PointLight(0x0044ff,1.2,4);screenGlow.position.set(0,2.2,0);group.add(screenGlow);
+  // Glow lights (adjusted downward)
+  const glow=new THREE.PointLight(0x0088ff,2.5,6);glow.position.set(0,.71,0);group.add(glow);
+  const screenGlow=new THREE.PointLight(0x0044ff,1.2,4);screenGlow.position.set(0,2.11,0);group.add(screenGlow);
   
   return group;
 }
@@ -949,30 +1337,30 @@ function createMovieScreenGeometry(){
   const group=new THREE.Group();
   const W=10,H=5.8;
   
-  // Frame
+  // Frame (adjusted: centered on half its height + 1.1 offset = H/2+1.1, now adjust down by H/2 for bottom pivot)
   const frameMat=new THREE.MeshStandardMaterial({color:0x0a1020,emissive:0x001030,emissiveIntensity:.3,roughness:.5,metalness:.7});
   const frame=new THREE.Mesh(new THREE.BoxGeometry(W+.3,H+.3,.12),frameMat);
-  frame.position.set(0,H/2+1.1,0);group.add(frame);
+  frame.position.set(0,1.1,0);group.add(frame);
   
-  // Neon border
+  // Neon border (adjusted for bottom pivot)
   const neonMat=new THREE.MeshStandardMaterial({color:0x0066ff,emissive:0x0066ff,emissiveIntensity:1.2,roughness:.1});
-  [[W+.3,.06,.06,[0,H+1.1+H*.5+.15,0]],[W+.3,.06,.06,[0,1.1-.15,0]],[.06,H+.3,.06,[-(W+.3)/2,H/2+1.1,0]],[.06,H+.3,.06,[(W+.3)/2,H/2+1.1,0]]].forEach(([gW,gH,gD,pos])=>{
+  [[W+.3,.06,.06,[0,1.1+H*.5+.15,0]],[W+.3,.06,.06,[0,1.1-.15,0]],[.06,H+.3,.06,[-(W+.3)/2,1.1,0]],[.06,H+.3,.06,[(W+.3)/2,1.1,0]]].forEach(([gW,gH,gD,pos])=>{
     const m=new THREE.Mesh(new THREE.BoxGeometry(gW,gH,gD),neonMat.clone());m.position.set(...pos);group.add(m);
   });
   
-  // Screen (simple black plane)
+  // Screen (simple black plane, adjusted for bottom pivot)
   const screenMat=new THREE.MeshBasicMaterial({color:0x000510});
   const screenMesh=new THREE.Mesh(new THREE.PlaneGeometry(W,H),screenMat);
-  screenMesh.position.set(0,H/2+1.1,.08);group.add(screenMesh);
+  screenMesh.position.set(0,1.1,.08);group.add(screenMesh);
   
-  // Control buttons
+  // Control buttons (adjusted downward for bottom pivot)
   [[-3.25,'📁'],[-1.95,'▶'],[-0.65,'⏸'],[0.65,'⏹'],[1.95,'🔇'],[3.25,'⛶']].forEach(([x,icon])=>{
     const bm=new THREE.Mesh(new THREE.BoxGeometry(1.0,.56,.06),new THREE.MeshStandardMaterial({color:0x001840,emissive:0x001840,emissiveIntensity:.4,roughness:.3,metalness:.5}));
-    bm.position.set(x,0.52,.08);group.add(bm);
+    bm.position.set(x,0.43,.08);group.add(bm);
   });
   
-  // Glow light
-  const glow2=new THREE.PointLight(0x003388,3.5,12);glow2.position.set(0,H/2+1.1,1);group.add(glow2);
+  // Glow light (adjusted for bottom pivot)
+  const glow2=new THREE.PointLight(0x003388,3.5,12);glow2.position.set(0,1.1+H/2,1);group.add(glow2);
   
   return group;
 }
@@ -985,12 +1373,27 @@ function resize(){
   renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix();
 }
 window.addEventListener('resize',resize);
-(function loop(){ requestAnimationFrame(loop); updCam(); renderer.render(scene,camera); })();
+
+(function loop(){
+  requestAnimationFrame(loop);
+  
+  // Update fly camera
+  if (!isGizmoDragging) {
+    updateFlyCamera();
+  }
+  
+  // Update transform controls
+  if (transformControls) {
+    transformControls.update();
+  }
+  
+  renderer.render(scene, camera);
+})();
 
 // ═══════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════
-rSky(); rLights(); rIcons(); rPortals(); rb(); resize();
+rSky(); rLights(); rIcons(); rPortals(); rb(); resize(); bindStaticScrubs(); initTransformGizmo();
 </script>
 </body>
 </html>
