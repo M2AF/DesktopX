@@ -83,6 +83,39 @@ Say goodbye to flat windows. Walk around your files, pin videos to the walls, dr
 * DesktopX securely saves your pinned images, videos, 3D models, and games into `IndexedDB`.
 * Export your room as a `save.json` file to share with friends or back up your masterpiece.
 
+### 🎨 **Color Presets**
+* **One-Click Room Customization**: Choose from six stunning pre-designed color themes to instantly transform your environment.
+* **Available Presets**:
+  - 🌌 **Deep Space**: A dark, cosmic palette with deep blues and purple accents
+  - 🌋 **Lava Cave**: Warm oranges and reds with glowing emissive surfaces
+  - 🌆 **Neon City**: Vibrant neon colors with high-contrast accent lighting
+  - ⬛ **The Void**: Pure darkness with minimalist subtle gradients
+  - 🌿 **Aurora**: Cool greens and cyans with ethereal atmosphere
+  - 🩸 **Crimson**: Deep reds and burgundy tones with atmospheric fog
+* Switch presets on-the-fly from the editor—all room customizations update instantly.
+
+### 🛠️ **Room Editor**
+* **Visual Room Customization Tool**: Access the powerful Room Editor to fine-tune every aspect of your 3D environment.
+* **Editor Features**:
+  - **ATMO Panel**: Customize atmosphere settings including fog density, sky gradients, star fields, and ambient lighting
+  - **LIGHTS Panel**: Add and configure point lights with custom colors and intensities to create dynamic lighting rigs
+  - **MATS Panel**: Adjust material properties for floors, walls, grid lines, and accent colors; control room size and wall height
+  - **ICONS Panel**: Customize icon appearances and behaviors
+  - **PORTALS Panel**: Create and manage spatial portals for navigation
+* **Export/Import**: Save your custom room configurations as `.dxroom` files to share with friends or backup your designs
+* **Real-Time Preview**: See all changes reflected instantly in the 3D viewport
+* **Access the Editor**: Open `dx-room-editor.html` in your browser to begin designing
+
+### 🧩 **Mods System**
+* **Extend DesktopX with Community Mods**: Create and share custom modifications to add new functionality and features.
+* **Mod Management**:
+  - **Import Mods**: Drag-and-drop or browse to load custom `.dxmod` files into your environment
+  - **Mod Panel**: Access the dedicated mods sidebar to view all installed mods, view their IDs, and manage installations
+  - **Activate/Deactivate**: Toggle mods on and off without uninstalling them
+  - **Mod Cards**: Each mod displays its name, unique ID, and quick-action buttons for management
+* **Create Your Own**: Mods can add custom features, themes, utilities, and more to personalize your DesktopX experience
+* **Community Sharing**: Share your creations with the DesktopX community via Discord
+
 ---
 
 ## 🎮 Controls
