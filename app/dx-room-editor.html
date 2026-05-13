@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>DesktopX · Room Editor</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#070400;--panel:#0e0800;--border:rgba(255,128,0,.18);--bhi:rgba(255,148,0,.45);
+  --acc:#ff8800;--gold:#ffcc44;--tx:#ffd07a;--dim:rgba(255,185,80,.42);
+  --ibg:rgba(255,100,0,.07);--cbg:rgba(255,90,0,.05);
+  --fh:'Orbitron',monospace;--fm:'JetBrains Mono',monospace
+}
+body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:11px;
+  display:flex;flex-direction:column;height:100vh;overflow:hidden;font-weight:300}
+
+/* ── HEADER ── */
+#hdr{height:46px;background:rgba(14,7,0,.98);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 16px;gap:12px;flex-shrink:0;z-index:10}
+.logo{font-family:var(--fh);font-size:12px;font-weight:600;color:var(--acc);
+  letter-spacing:.18em;white-space:nowrap}
+.hsep{width:1px;height:20px;background:var(--border)}
+.hf{display:flex;align-items:center;gap:6px}
+.hf label{color:var(--dim);font-size:9px;letter-spacing:.1em;white-space:nowrap}
+.hf input{background:var(--ibg);border:1px solid rgba(255,130,0,.25);color:var(--gold);
+  padding:4px 10px;border-radius:4px;font-family:var(--fm);font-size:11px;transition:border-color .15s}
+.hf input:focus{outline:none;border-color:var(--acc)}
+.hf input.ni{width:150px}.hf input.ii{color:var(--dim);width:120px}
+.sp{flex:1}
+.pw{position:relative}
+#pbtn{background:rgba(255,130,0,.1);border:1px solid var(--border);color:var(--dim);
+  padding:5px 12px;border-radius:4px;cursor:pointer;font-family:var(--fm);font-size:10px;
+  letter-spacing:.06em;transition:all .13s}
+#pbtn:hover{border-color:var(--bhi);color:var(--tx)}
+#pmenu{display:none;position:absolute;top:100%;right:0;margin-top:4px;
+  background:rgba(14,7,0,.98);border:1px solid var(--bhi);border-radius:6px;
+  min-width:165px;z-index:100;overflow:hidden}
+#pmenu.open{display:block}
+#pmenu button{display:block;width:100%;background:none;border:none;
+  border-bottom:1px solid rgba(255,130,0,.1);color:var(--tx);padding:8px 14px;
+  text-align:left;cursor:pointer;font-family:var(--fm);font-size:10px;transition:all .1s}
+#pmenu button:last-child{border-bottom:none}
+#pmenu button:hover{background:rgba(255,130,0,.12);color:var(--gold)}
+#expbtn{background:rgba(255,120,0,.18);border:1px solid rgba(255,140,0,.5);
+  color:var(--gold);padding:6px 16px;border-radius:5px;cursor:pointer;
+  font-family:var(--fh);font-size:10px;letter-spacing:.1em;transition:all .15s;white-space:nowrap}
+#expbtn:hover{background:rgba(255,140,0,.3);box-shadow:0 0 14px rgba(255,140,0,.25)}
+
+/* ── MAIN ── */
+#main{flex:1;display:flex;overflow:hidden}
+
+/* ── SIDEBAR ── */
+#sb{width:310px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden}
+#tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0}
+.tab{flex:1;padding:9px 2px;text-align:center;color:var(--dim);font-size:8px;
+  letter-spacing:.1em;cursor:pointer;border-bottom:2px solid transparent;
+  transition:all .14s;font-family:var(--fh);user-select:none}
+.tab:hover{color:var(--tx)}.tab.on{color:var(--acc);border-bottom-color:var(--acc)}
+#panels{flex:1;overflow-y:auto;padding:14px 12px;scroll-behavior:smooth}
+#panels::-webkit-scrollbar{width:3px}
+#panels::-webkit-scrollbar-thumb{background:rgba(255,130,0,.2);border-radius:2px}
+.panel{display:none}.panel.on{display:block}
+
+/* ── FORM ── */
+.sec{font-family:var(--fh);font-size:8px;letter-spacing:.2em;color:var(--acc);
+  margin:16px 0 8px;padding-bottom:4px;border-bottom:1px solid rgba(255,130,0,.12)}
+.sec:first-child{margin-top:0}
+.f{margin-bottom:9px}
+.f>label{display:block;color:var(--dim);font-size:9px;letter-spacing:.05em;margin-bottom:4px}
+.f input[type=text],.f input[type=number],.f select{width:100%;background:var(--ibg);
+  border:1px solid rgba(255,130,0,.2);color:var(--tx);padding:5px 8px;border-radius:4px;
+  font-family:var(--fm);font-size:11px;transition:border-color .12s}
+.f input:focus,.f select:focus{outline:none;border-color:rgba(255,140,0,.5)}
+.f select option{background:#120900}
+.f input[type=range]{width:100%;accent-color:var(--acc);cursor:pointer}
+.r2{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.r3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px}
+.r3>div>label{font-size:8.5px;display:block;color:var(--dim);margin-bottom:3px}
+.val{float:right;color:var(--gold);font-size:9px;font-family:var(--fm)}
+.cr{display:flex;align-items:center;gap:8px}
+.cr input[type=color]{width:34px;height:28px;border:1px solid rgba(255,130,0,.3);
+  border-radius:4px;cursor:pointer;background:none;padding:2px;flex-shrink:0}
+.cv{font-family:var(--fm);font-size:10px;color:var(--dim)}
+.div{height:1px;background:rgba(255,130,0,.08);margin:12px 0}
+.cbx{display:flex;align-items:center;gap:8px;cursor:pointer}
+.cbx input{accent-color:var(--acc);width:13px;height:13px;cursor:pointer;flex-shrink:0}
+.cbx span{color:var(--tx);font-size:10px}
+
+/* ── CARDS ── */
+.card{background:var(--cbg);border:1px solid rgba(255,130,0,.13);
+  border-radius:6px;padding:10px 10px 8px;margin-bottom:7px}
+.ch{display:flex;justify-content:space-between;align-items:center;
+  margin-bottom:8px;font-family:var(--fh);font-size:8px;letter-spacing:.12em;color:var(--gold)}
+.del{background:rgba(255,40,0,.12);border:1px solid rgba(255,60,0,.3);
+  color:#ff6644;padding:1px 7px;border-radius:3px;cursor:pointer;font-size:10px;line-height:1.4}
+.del:hover{background:rgba(255,60,0,.25)}
+.abtn{width:100%;background:none;border:1px dashed rgba(255,130,0,.22);
+  color:var(--dim);padding:7px;border-radius:4px;cursor:pointer;
+  font-family:var(--fm);font-size:10px;text-align:center;transition:all .12s;margin-top:2px}
+.abtn:hover{background:rgba(255,130,0,.12);color:var(--tx);border-color:rgba(255,130,0,.45)}
+
+/* ── PREVIEW ── */
+#pv{flex:1;position:relative;overflow:hidden;background:#000}
+#pv canvas{display:block;width:100%!important;height:100%!important}
+#pvsc{position:absolute;inset:0;
+  background:repeating-linear-gradient(to bottom,transparent 0px,transparent 3px,rgba(0,0,0,.06) 3px,rgba(0,0,0,.06) 4px);
+  pointer-events:none;opacity:.4}
+#pvlbl{position:absolute;top:10px;left:10px;font-family:var(--fh);font-size:9px;
+  letter-spacing:.14em;color:rgba(255,140,0,.38);pointer-events:none}
+#pvhint{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);
+  color:rgba(255,140,0,.22);font-size:9px;letter-spacing:.07em;pointer-events:none;white-space:nowrap}
+#pvinfo{position:absolute;top:10px;right:12px;font-family:var(--fh);font-size:8px;
+  letter-spacing:.1em;color:rgba(255,140,0,.32);pointer-events:none;text-align:right;line-height:1.9}
+</style>
+</head>
+<body>
+
+<div id="hdr">
+  <div class="logo">⬡ DX ROOM EDITOR</div>
+  <div class="hsep"></div>
+  <div class="hf"><label>NAME</label><input class="ni" id="rn" type="text" value="My Room" oninput="uinfo()"></div>
+  <div class="hf"><label>ID</label><input class="ii" id="ri" type="text" value="my_room" oninput="uinfo()"></div>
+  <div class="sp"></div>
+  <div class="pw">
+    <button id="pbtn" onclick="$('pmenu').classList.toggle('open')">PRESETS ▾</button>
+    <div id="pmenu">
+      <button onclick="ap('space')">🌌 Deep Space</button>
+      <button onclick="ap('lava')">🌋 Lava Cave</button>
+      <button onclick="ap('neon')">🌆 Neon City</button>
+      <button onclick="ap('void')">⬛ The Void</button>
+      <button onclick="ap('aurora')">🌿 Aurora</button>
+      <button onclick="ap('crimson')">🩸 Crimson</button>
+    </div>
+  </div>
+  <button id="expbtn" onclick="exportRoom()">⬇ EXPORT .dxroom</button>
+</div>
+
+<div id="main">
+  <div id="sb">
+    <div id="tabs">
+      <div class="tab on" data-t="atmo" onclick="st('atmo')">ATMO</div>
+      <div class="tab" data-t="lights" onclick="st('lights')">LIGHTS</div>
+      <div class="tab" data-t="mats" onclick="st('mats')">MATS</div>
+      <div class="tab" data-t="icons" onclick="st('icons')">ICONS</div>
+      <div class="tab" data-t="portals" onclick="st('portals')">PORTALS</div>
+    </div>
+    <div id="panels">
+
+      <div class="panel on" id="p-atmo">
+        <div class="sec">FOG</div>
+        <div class="f"><label>Color</label>
+          <div class="cr"><input type="color" id="fc" value="#000510" oninput="cs(this);rb()"><span class="cv" id="fc-v">#000510</span></div></div>
+        <div class="f"><label>Density <span class="val" id="fd-v">0.008</span></label>
+          <input type="range" id="fd" min="0" max="0.05" step="0.001" value="0.008" oninput="sv('fd','fd-v',3);rb()"></div>
+        <div class="div"></div>
+        <div class="sec">SKY GRADIENT</div>
+        <div id="sky-list"></div>
+        <button class="abtn" onclick="addSky()">+ Add Stop</button>
+        <div class="div"></div>
+        <div class="sec">STARS</div>
+        <div class="f"><label class="cbx"><input type="checkbox" id="stars" checked onchange="rb()"><span>Enable star field</span></label></div>
+        <div class="div"></div>
+        <div class="sec">AMBIENT LIGHT</div>
+        <div class="f"><label>Color</label>
+          <div class="cr"><input type="color" id="ac" value="#001028" oninput="cs(this);rb()"><span class="cv" id="ac-v">#001028</span></div></div>
+        <div class="f"><label>Intensity <span class="val" id="ai-v">0.60</span></label>
+          <input type="range" id="ai" min="0" max="3" step="0.05" value="0.6" oninput="sv('ai','ai-v',2);rb()"></div>
+      </div>
+
+      <div class="panel" id="p-lights">
+        <div class="sec">POINT LIGHTS</div>
+        <div id="ll"></div>
+        <button class="abtn" onclick="addLight()">+ Add Point Light</button>
+      </div>
+
+      <div class="panel" id="p-mats">
+        <div class="sec">FLOOR</div>
+        <div class="f"><label>Base Color</label>
+          <div class="cr"><input type="color" id="f1" value="#050520" oninput="cs(this);rb()"><span class="cv" id="f1-v">#050520</span></div></div>
+        <div class="f"><label>Emissive</label>
+          <div class="cr"><input type="color" id="f2" value="#010110" oninput="cs(this);rb()"><span class="cv" id="f2-v">#010110</span></div></div>
+        <div class="div"></div>
+        <div class="sec">WALLS</div>
+        <div class="f"><label>Base Color</label>
+          <div class="cr"><input type="color" id="w1" value="#060830" oninput="cs(this);rb()"><span class="cv" id="w1-v">#060830</span></div></div>
+        <div class="f"><label>Emissive</label>
+          <div class="cr"><input type="color" id="w2" value="#020215" oninput="cs(this);rb()"><span class="cv" id="w2-v">#020215</span></div></div>
+        <div class="div"></div>
+        <div class="sec">GRID & ACCENT</div>
+        <div class="f"><label>Grid Color</label>
+          <div class="cr"><input type="color" id="gc" value="#001844" oninput="cs(this);rb()"><span class="cv" id="gc-v">#001844</span></div></div>
+        <div class="f"><label>Accent Color (strips + particles)</label>
+          <div class="cr"><input type="color" id="xc" value="#0066ff" oninput="cs(this);rb()"><span class="cv" id="xc-v">#0066ff</span></div></div>
+        <div class="div"></div>
+        <div class="sec">GEOMETRY</div>
+        <div class="f"><label>Room Size <span class="val" id="sz-v">40</span></label>
+          <input type="range" id="rsz" min="20" max="80" step="5" value="40" oninput="sv('rsz','sz-v',0);rb()"></div>
+        <div class="f"><label>Wall Height <span class="val" id="wh-v">14</span></label>
+          <input type="range" id="wh" min="8" max="28" step="1" value="14" oninput="sv('wh','wh-v',0);rb()"></div>
+      </div>
+
+      <div class="panel" id="p-icons">
+        <div class="sec">ICON WALL</div>
+        <div class="f"><select id="iw" onchange="rb()">
+          <option value="front">Front</option><option value="back">Back</option>
+          <option value="left">Left</option><option value="right">Right</option>
+        </select></div>
+        <div class="div"></div>
+        <div class="sec">ICONS</div>
+        <div id="il"></div>
+        <button class="abtn" onclick="addIcon()">+ Add Icon</button>
+      </div>
+
+      <div class="panel" id="p-portals">
+        <div class="sec">PORTALS</div>
+        <p style="color:var(--dim);font-size:9.5px;line-height:1.7;margin-bottom:10px">
+          Portals connect rooms. Target ID must match another room's ID
+          (e.g. <code style="color:var(--gold)">home</code>).
+        </p>
+        <div id="pl"></div>
+        <button class="abtn" onclick="addPortal()">+ Add Portal</button>
+      </div>
+
+    </div>
+  </div>
+
+  <div id="pv">
+    <canvas id="c"></canvas>
+    <div id="pvsc"></div>
+    <div id="pvlbl">LIVE PREVIEW</div>
+    <div id="pvhint">drag to orbit · scroll to zoom</div>
+    <div id="pvinfo"></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════
+const S = {
+  sky:    [{stop:0,color:'#000510'},{stop:.5,color:'#001030'},{stop:1,color:'#000820'}],
+  lights: [{color:'#0044ff',i:3.5,x:0,y:8,z:0},{color:'#00ffaa',i:1.5,x:12,y:6,z:-12},{color:'#4400ff',i:1.2,x:-12,y:5,z:12}],
+  icons:  [{name:'Downloads',type:'folder'},{name:'Documents',type:'folder'},{name:'Music',type:'audio'},{name:'Photos',type:'photo'}],
+  portals:[]
+};
+
+// ═══════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════
+const $ = id => document.getElementById(id);
+const v  = id => $(id).value;
+const fv = id => parseFloat(v(id));
+const bv = id => $(id).checked;
+const h2i= hex => parseInt(hex.replace('#',''),16);
+function cs(inp){ const s=inp.nextElementSibling; if(s&&s.classList.contains('cv')) s.textContent=inp.value; }
+function sv(rid,vid,d){ $(vid).textContent = parseFloat(v(rid)).toFixed(d); }
+function si(id,val){ const el=$(id); if(!el)return; el.value=val; const s=el.nextElementSibling; if(s&&s.classList.contains('cv')) s.textContent=val; }
+function uinfo(){ $(pvinfo).innerHTML=`<div>${v('rn')||'Unnamed'}</div><div style="opacity:.45;font-size:7.5px">${v('ri')||'no-id'}</div>`; }
+
+// ═══════════════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════════════
+function st(id){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.t===id));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+  $('p-'+id).classList.add('on');
+}
+
+// ═══════════════════════════════════════════════════
+// PRESETS
+// ═══════════════════════════════════════════════════
+const PRESETS = {
+  space:  {fog:'#000510',fd:.008,stars:true,sky:[{stop:0,color:'#000510'},{stop:.5,color:'#001030'},{stop:1,color:'#000820'}],ambC:'#001028',ambI:.6,lights:[{color:'#0044ff',i:3.5,x:0,y:8,z:0},{color:'#00ffaa',i:1.5,x:12,y:6,z:-12},{color:'#4400ff',i:1.2,x:-12,y:5,z:12}],f1:'#050520',f2:'#010110',w1:'#060830',w2:'#020215',gc:'#001844',xc:'#0066ff'},
+  lava:   {fog:'#1a0500',fd:.012,stars:false,sky:[{stop:0,color:'#1a0500'},{stop:.4,color:'#3d0800'},{stop:1,color:'#0d0200'}],ambC:'#2a0800',ambI:.8,lights:[{color:'#ff3300',i:4,x:0,y:8,z:0},{color:'#ff8800',i:2,x:10,y:3,z:-10},{color:'#ff6600',i:1.5,x:-10,y:3,z:10}],f1:'#1a0800',f2:'#2d0300',w1:'#200500',w2:'#150200',gc:'#3d0a00',xc:'#ff5500'},
+  neon:   {fog:'#000818',fd:.01,stars:true,sky:[{stop:0,color:'#000818'},{stop:.5,color:'#000d30'},{stop:1,color:'#001020'}],ambC:'#001020',ambI:.5,lights:[{color:'#00ffff',i:3,x:0,y:8,z:0},{color:'#ff00aa',i:2,x:12,y:5,z:-12},{color:'#00aaff',i:2,x:-12,y:5,z:12}],f1:'#030d18',f2:'#000d18',w1:'#040a20',w2:'#020618',gc:'#001838',xc:'#00ffcc'},
+  void:   {fog:'#030303',fd:.025,stars:true,sky:[{stop:0,color:'#030303'},{stop:1,color:'#000000'}],ambC:'#080808',ambI:.3,lights:[{color:'#8800ff',i:2.5,x:0,y:8,z:0},{color:'#4400aa',i:1.5,x:10,y:4,z:-10}],f1:'#060606',f2:'#030303',w1:'#080808',w2:'#040404',gc:'#111111',xc:'#6600ff'},
+  aurora: {fog:'#001408',fd:.009,stars:true,sky:[{stop:0,color:'#001408'},{stop:.4,color:'#002818'},{stop:1,color:'#001010'}],ambC:'#001a10',ambI:.6,lights:[{color:'#00ff88',i:3,x:0,y:8,z:0},{color:'#00ccff',i:2,x:12,y:5,z:-12},{color:'#88ff00',i:1.5,x:-12,y:5,z:12}],f1:'#001408',f2:'#000d05',w1:'#001a0a',w2:'#000f06',gc:'#002814',xc:'#00ff88'},
+  crimson:{fog:'#0d0000',fd:.01,stars:true,sky:[{stop:0,color:'#0d0000'},{stop:.5,color:'#1a0000'},{stop:1,color:'#080000'}],ambC:'#180000',ambI:.7,lights:[{color:'#ff0033',i:4,x:0,y:8,z:0},{color:'#ff4400',i:2,x:10,y:5,z:-10},{color:'#dd0044',i:1.5,x:-10,y:5,z:10}],f1:'#150000',f2:'#0a0000',w1:'#1a0000',w2:'#0d0000',gc:'#2a0000',xc:'#ff0033'}
+};
+
+document.addEventListener('click',e=>{ if(!e.target.closest('.pw')) $('pmenu').classList.remove('open'); });
+
+function ap(key){
+  const p=PRESETS[key]; if(!p) return;
+  $('pmenu').classList.remove('open');
+  si('fc',p.fog); $('fc-v').textContent=p.fog;
+  $('fd').value=p.fd; $('fd-v').textContent=p.fd.toFixed(3);
+  $('stars').checked=p.stars;
+  S.sky=p.sky.map(s=>({...s})); rSky();
+  si('ac',p.ambC); $('ac-v').textContent=p.ambC;
+  $('ai').value=p.ambI; $('ai-v').textContent=p.ambI.toFixed(2);
+  S.lights=p.lights.map(l=>({...l})); rLights();
+  [['f1',p.f1],['f2',p.f2],['w1',p.w1],['w2',p.w2],['gc',p.gc],['xc',p.xc]].forEach(([id,val])=>{
+    si(id,val); $(id+'-v').textContent=val;
+  });
+  rb();
+}
+
+// ═══════════════════════════════════════════════════
+// SKY STOPS
+// ═══════════════════════════════════════════════════
+function rSky(){
+  const el=$('sky-list'); el.innerHTML='';
+  S.sky.forEach((s,i)=>{
+    const d=document.createElement('div'); d.className='card';
+    d.innerHTML=`<div class="ch">STOP ${i+1}${i>0?`<button class="del" onclick="S.sky.splice(${i},1);rSky();rb()">✕</button>`:''}</div>
+    <div class="f r2">
+      <div><label>Position 0–1</label><input type="number" min="0" max="1" step="0.05" value="${s.stop}" oninput="S.sky[${i}].stop=parseFloat(this.value)||0;rb()"></div>
+      <div><label>Color</label><div class="cr"><input type="color" value="${s.color}" oninput="S.sky[${i}].color=this.value;cs(this);rb()"><span class="cv">${s.color}</span></div></div>
+    </div>`;
+    el.appendChild(d);
+  });
+}
+function addSky(){ S.sky.push({stop:1,color:'#000010'}); rSky(); rb(); }
+
+// ═══════════════════════════════════════════════════
+// LIGHTS
+// ═══════════════════════════════════════════════════
+function rLights(){
+  const el=$('ll'); el.innerHTML='';
+  S.lights.forEach((l,i)=>{
+    const d=document.createElement('div'); d.className='card';
+    d.innerHTML=`<div class="ch">LIGHT ${i+1}<button class="del" onclick="S.lights.splice(${i},1);rLights();rb()">✕</button></div>
+    <div class="f"><label>Color</label><div class="cr"><input type="color" value="${l.color}" oninput="S.lights[${i}].color=this.value;cs(this);rb()"><span class="cv">${l.color}</span></div></div>
+    <div class="f"><label>Intensity <span class="val">${l.i.toFixed(1)}</span></label>
+      <input type="range" min="0" max="10" step="0.1" value="${l.i}" oninput="S.lights[${i}].i=parseFloat(this.value);this.previousElementSibling.querySelector('.val').textContent=parseFloat(this.value).toFixed(1);rb()"></div>
+    <div class="f"><label>Position</label><div class="r3">
+      <div><label>X</label><input type="number" step="1" value="${l.x}" oninput="S.lights[${i}].x=parseFloat(this.value)||0;rb()"></div>
+      <div><label>Y</label><input type="number" step="1" value="${l.y}" oninput="S.lights[${i}].y=parseFloat(this.value)||0;rb()"></div>
+      <div><label>Z</label><input type="number" step="1" value="${l.z}" oninput="S.lights[${i}].z=parseFloat(this.value)||0;rb()"></div>
+    </div></div>`;
+    el.appendChild(d);
+  });
+}
+function addLight(){ S.lights.push({color:'#ffffff',i:1,x:0,y:6,z:0}); rLights(); rb(); }
+
+// ═══════════════════════════════════════════════════
+// ICONS
+// ═══════════════════════════════════════════════════
+const ITYPES=['folder','audio','photo','video','text','exe','steam','settings','chainlens','default'];
+function rIcons(){
+  const el=$('il'); el.innerHTML='';
+  S.icons.forEach((ic,i)=>{
+    const d=document.createElement('div'); d.className='card';
+    d.innerHTML=`<div class="ch">ICON ${i+1}<button class="del" onclick="S.icons.splice(${i},1);rIcons();rb()">✕</button></div>
+    <div class="f r2">
+      <div><label>Name</label><input type="text" value="${ic.name}" oninput="S.icons[${i}].name=this.value"></div>
+      <div><label>Type</label><select onchange="S.icons[${i}].type=this.value">${ITYPES.map(t=>`<option value="${t}"${t===ic.type?' selected':''}>${t}</option>`).join('')}</select></div>
+    </div>`;
+    el.appendChild(d);
+  });
+}
+function addIcon(){ S.icons.push({name:'New Icon',type:'folder'}); rIcons(); }
+
+// ═══════════════════════════════════════════════════
+// PORTALS
+// ═══════════════════════════════════════════════════
+function rPortals(){
+  const el=$('pl'); el.innerHTML='';
+  S.portals.forEach((p,i)=>{
+    const d=document.createElement('div'); d.className='card';
+    d.innerHTML=`<div class="ch">PORTAL ${i+1}<button class="del" onclick="S.portals.splice(${i},1);rPortals();rb()">✕</button></div>
+    <div class="f r2">
+      <div><label>Label</label><input type="text" value="${p.label}" oninput="S.portals[${i}].label=this.value"></div>
+      <div><label>Target Room ID</label><input type="text" value="${p.target}" placeholder="home" oninput="S.portals[${i}].target=this.value"></div>
+    </div>
+    <div class="f"><label>Position</label><div class="r3">
+      <div><label>X</label><input type="number" step="1" value="${p.x}" oninput="S.portals[${i}].x=parseFloat(this.value)||0;rb()"></div>
+      <div><label>Y</label><input type="number" step="1" value="${p.y}" oninput="S.portals[${i}].y=parseFloat(this.value)||0;rb()"></div>
+      <div><label>Z</label><input type="number" step="1" value="${p.z}" oninput="S.portals[${i}].z=parseFloat(this.value)||0;rb()"></div>
+    </div></div>
+    <div class="f"><label>Rotation Y (radians · π≈3.14)</label>
+      <input type="number" step="0.1" value="${p.rot}" oninput="S.portals[${i}].rot=parseFloat(this.value)||0;rb()"></div>`;
+    el.appendChild(d);
+  });
+}
+function addPortal(){ S.portals.push({label:'Home',target:'home',x:0,y:0,z:-18,rot:0}); rPortals(); rb(); }
+
+// ═══════════════════════════════════════════════════
+// EXPORT
+// ═══════════════════════════════════════════════════
+function exportRoom(){
+  const id=v('ri').trim().replace(/\s+/g,'_').toLowerCase()||'my_room';
+  const name=v('rn').trim()||'My Room';
+  const def={
+    version:'dxroom/1', id, name,
+    sz:parseInt(v('rsz')), wallH:parseInt(v('wh')),
+    fog:h2i(v('fc')), fogD:fv('fd'),
+    sky:S.sky.map(s=>[s.stop,s.color]),
+    stars:bv('stars'),
+    ambient:[h2i(v('ac')),fv('ai')],
+    lights:S.lights.map(l=>({c:h2i(l.color),i:l.i,p:[l.x,l.y,l.z]})),
+    floor:[h2i(v('f1')),h2i(v('f2'))],
+    wall:[h2i(v('w1')),h2i(v('w2'))],
+    grid:h2i(v('gc')), accent:h2i(v('xc')),
+    portals:S.portals.map(p=>({pos:[p.x,p.y,p.z],rot:p.rot,target:p.target,label:p.label})),
+    icons:S.icons.map(i=>i.name),
+    iconTypes:S.icons.map(i=>i.type),
+    iconWall:v('iw')
+  };
+  const a=document.createElement('a');
+  a.href='data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(def,null,2));
+  a.download=id+'.dxroom'; a.click();
+}
+
+// ═══════════════════════════════════════════════════
+// THREE.JS PREVIEW
+// ═══════════════════════════════════════════════════
+const canvas=$('c');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(65,1,.1,200);
+let pvL=[],pvO=[];
+
+function clrScene(){
+  pvL.forEach(l=>scene.remove(l)); pvL=[];
+  pvO.forEach(o=>{ scene.remove(o); o.traverse(c=>{ if(c.geometry)c.geometry.dispose(); if(c.material)[].concat(c.material).forEach(m=>m.dispose()); }); }); pvO=[];
+}
+function add(o,isL){ scene.add(o); (isL?pvL:pvO).push(o); }
+
+function makeSkyTex(){
+  const cv=document.createElement('canvas'); cv.width=2; cv.height=512;
+  const ctx=cv.getContext('2d'); const g=ctx.createLinearGradient(0,0,0,512);
+  S.sky.forEach(s=>g.addColorStop(Math.max(0,Math.min(1,s.stop)),s.color));
+  ctx.fillStyle=g; ctx.fillRect(0,0,2,512);
+  return new THREE.CanvasTexture(cv);
+}
+
+const IC={folder:0x3388ff,audio:0x00cc88,photo:0xff8844,video:0xaa44ff,text:0x88aacc,exe:0xff4488,steam:0x66aaff,settings:0x888888,chainlens:0xffcc44,default:0x4466aa};
+
+function rb(){
+  clrScene();
+  const SZ=parseInt(v('rsz'))||40, WH=parseInt(v('wh'))||14;
+  scene.fog=new THREE.FogExp2(h2i(v('fc')),fv('fd'));
+
+  // Sky sphere
+  add(new THREE.Mesh(new THREE.SphereGeometry(90,16,16),new THREE.MeshBasicMaterial({map:makeSkyTex(),side:THREE.BackSide})));
+
+  // Stars
+  if(bv('stars')){
+    const n=1200,pos=new Float32Array(n*3);
+    for(let i=0;i<n;i++){const t=Math.random()*Math.PI*2,ph=Math.acos(2*Math.random()-1),r=65+Math.random()*10;pos[i*3]=r*Math.sin(ph)*Math.cos(t);pos[i*3+1]=r*Math.sin(ph)*Math.sin(t);pos[i*3+2]=r*Math.cos(ph);}
+    const sg=new THREE.BufferGeometry(); sg.setAttribute('position',new THREE.BufferAttribute(pos,3));
+    add(new THREE.Points(sg,new THREE.PointsMaterial({color:0xffffff,size:.25,transparent:true,opacity:.75})));
+  }
+
+  // Ambient
+  add(new THREE.AmbientLight(h2i(v('ac')),fv('ai')),true);
+
+  // Point lights + helpers
+  S.lights.forEach(l=>{
+    const pl=new THREE.PointLight(h2i(l.color),l.i,40); pl.position.set(l.x,l.y,l.z); pl.castShadow=true; add(pl,true);
+    const sp=new THREE.Mesh(new THREE.SphereGeometry(.18,8,8),new THREE.MeshBasicMaterial({color:h2i(l.color)}));
+    sp.position.set(l.x,l.y,l.z); add(sp);
+  });
+
+  // Floor
+  const fm=new THREE.MeshStandardMaterial({color:h2i(v('f1')),emissive:h2i(v('f2')),roughness:.85,metalness:.15});
+  const fl=new THREE.Mesh(new THREE.PlaneGeometry(SZ,SZ,24,24),fm); fl.rotation.x=-Math.PI/2; fl.receiveShadow=true; add(fl);
+
+  // Grid
+  const gr=new THREE.GridHelper(SZ,SZ,h2i(v('gc')),h2i(v('gc'))); gr.position.y=.01; gr.material.opacity=.22; gr.material.transparent=true; add(gr);
+
+  // Walls
+  const wm=()=>new THREE.MeshStandardMaterial({color:h2i(v('w1')),emissive:h2i(v('w2')),roughness:.9});
+  [{p:[0,WH/2,-SZ/2],r:[0,0,0]},{p:[0,WH/2,SZ/2],r:[0,Math.PI,0]},{p:[-SZ/2,WH/2,0],r:[0,Math.PI/2,0]},{p:[SZ/2,WH/2,0],r:[0,-Math.PI/2,0]}].forEach(w=>{
+    const m=new THREE.Mesh(new THREE.PlaneGeometry(SZ,WH),wm()); m.position.set(...w.p); m.rotation.set(...w.r); m.receiveShadow=true; add(m);
+  });
+  const ceil=new THREE.Mesh(new THREE.PlaneGeometry(SZ,SZ),wm()); ceil.rotation.x=Math.PI/2; ceil.position.y=WH; add(ceil);
+
+  // Accent strips
+  const acc=h2i(v('xc')),sm=()=>new THREE.MeshStandardMaterial({color:acc,emissive:acc,emissiveIntensity:.6,roughness:.3}),mh=WH*.5;
+  [[new THREE.BoxGeometry(SZ,.05,.05),[0,1.85,-SZ/2+.04]],[new THREE.BoxGeometry(SZ,.05,.05),[0,1.85,SZ/2-.04]],
+   [new THREE.BoxGeometry(.05,.05,SZ),[-SZ/2+.04,1.85,0]],[new THREE.BoxGeometry(.05,.05,SZ),[SZ/2-.04,1.85,0]],
+   [new THREE.BoxGeometry(SZ,.04,.04),[0,mh,-SZ/2+.04]],[new THREE.BoxGeometry(SZ,.04,.04),[0,mh,SZ/2-.04]],
+   [new THREE.BoxGeometry(.04,.04,SZ),[-SZ/2+.04,mh,0]],[new THREE.BoxGeometry(.04,.04,SZ),[SZ/2-.04,mh,0]]
+  ].forEach(([geo,pos])=>{ const m=new THREE.Mesh(geo,sm()); m.position.set(...pos); add(m); });
+
+  // Portals
+  S.portals.forEach(pd=>{
+    const grp=new THREE.Group(); grp.position.set(pd.x,pd.y,pd.z); grp.rotation.y=pd.rot;
+    const pm=new THREE.MeshStandardMaterial({color:0x00ffaa,emissive:0x00ffaa,emissiveIntensity:.8});
+    const W=2.2,H=3.2;
+    [[0,H/2,W/2+.04,H,.08,.08],[0,H/2,-W/2-.04,H,.08,.08],[0,0,0,.08,W+.16,.08],[0,H,0,.08,W+.16,.08]].forEach(([px,py,pz,gh,gw,gz])=>{
+      const b=new THREE.Mesh(new THREE.BoxGeometry(gw,gh,gz),pm.clone()); b.position.set(px,py,pz); grp.add(b);
+    });
+    scene.add(grp); pvO.push(grp);
+  });
+
+  // Icon placeholders on selected wall
+  const iw=v('iw');
+  const wp={front:{px:0,pz:-SZ/2+.1,ry:0},back:{px:0,pz:SZ/2-.1,ry:Math.PI},left:{px:-SZ/2+.1,pz:0,ry:Math.PI/2},right:{px:SZ/2-.1,pz:0,ry:-Math.PI/2}}[iw];
+  const cols=Math.max(1,Math.ceil(Math.sqrt(S.icons.length)));
+  S.icons.forEach((ic,idx)=>{
+    const col=idx%cols,row=Math.floor(idx/cols),sp=1.5,sx=-(cols-1)*sp/2;
+    const g=new THREE.Group(),lx=sx+col*sp,ly=2.5+row*1.8;
+    if(iw==='front'||iw==='back') g.position.set(wp.px+lx,ly,wp.pz);
+    else g.position.set(wp.px,ly,wp.pz+lx);
+    g.rotation.y=wp.ry;
+    const clr=IC[ic.type]||0x4466aa;
+    g.add(new THREE.Mesh(new THREE.PlaneGeometry(1,1.2),new THREE.MeshStandardMaterial({color:clr,emissive:clr,emissiveIntensity:.25,transparent:true,opacity:.9})));
+    scene.add(g); pvO.push(g);
+  });
+
+  // Update info overlay
+  $('pvinfo').innerHTML=`<div>${v('rn')||'Unnamed'}</div><div style="opacity:.4;font-size:7.5px">${v('ri')||'no-id'}</div><div style="opacity:.28;font-size:7.5px;margin-top:3px">${S.lights.length} lights · ${S.icons.length} icons · ${S.portals.length} portals</div>`;
+}
+
+// ═══════════════════════════════════════════════════
+// ORBIT CONTROLS
+// ═══════════════════════════════════════════════════
+let drag=false,lx=0,ly=0,theta=.3,phi=.28,radius=22;
+canvas.addEventListener('mousedown',e=>{drag=true;lx=e.clientX;ly=e.clientY;});
+window.addEventListener('mouseup',()=>drag=false);
+window.addEventListener('mousemove',e=>{
+  if(!drag)return;
+  theta-=(e.clientX-lx)*.007; phi=Math.max(.04,Math.min(Math.PI*.47,phi-(e.clientY-ly)*.005));
+  lx=e.clientX;ly=e.clientY;
+});
+canvas.addEventListener('wheel',e=>{radius=Math.max(3,Math.min(44,radius+e.deltaY*.018));},{passive:true});
+
+function updCam(){
+  camera.position.x=radius*Math.sin(theta)*Math.cos(phi);
+  camera.position.y=radius*Math.sin(phi)+2;
+  camera.position.z=radius*Math.cos(theta)*Math.cos(phi);
+  camera.lookAt(0,2.5,0);
+}
+
+// ═══════════════════════════════════════════════════
+// RESIZE + LOOP
+// ═══════════════════════════════════════════════════
+function resize(){
+  const el=$('pv'),w=el.clientWidth,h=el.clientHeight;
+  renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix();
+}
+window.addEventListener('resize',resize);
+(function loop(){ requestAnimationFrame(loop); updCam(); renderer.render(scene,camera); })();
+
+// ═══════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════
+rSky(); rLights(); rIcons(); rPortals(); rb(); resize();
+</script>
+</body>
+</html>
