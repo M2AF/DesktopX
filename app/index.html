@@ -2541,6 +2541,15 @@
         <option value="med" selected>Medium</option>
         <option value="high">High</option>
       </select></div>
+    <div class="setting"><label>Room Color Scheme</label><select id="room-preset-select" onchange="applyRoomPreset(this.value)">
+        <option value="">— Current —</option>
+        <option value="space">🌌 Deep Space</option>
+        <option value="lava">🌋 Lava Cave</option>
+        <option value="neon">🌆 Neon City</option>
+        <option value="void">⬛ The Void</option>
+        <option value="aurora">🌿 Aurora</option>
+        <option value="crimson">🩸 Crimson</option>
+      </select></div>
     <div class="setting"><label>Icon Grid Wall</label><select id="wall-select" onchange="changeIconWall(this.value)">
         <option value="front" selected>Front</option>
         <option value="back">Back</option>
@@ -4980,6 +4989,24 @@
     // SETTINGS
     // ===============================================================
     function toggleSettings() { $('settings').classList.toggle('open'); }
+
+    // ── ROOM COLOR PRESETS ──────────────────────────────────────────
+    const ROOM_PRESETS = {
+      space:   { fog:0x000510, fogD:.008, stars:true,  sky:[[0,'#000510'],[.5,'#001030'],[1,'#000820']], ambient:[0x001028,.6],  lights:[{c:0x0044ff,i:3.5,p:[0,8,0]},{c:0x00ffaa,i:1.5,p:[12,6,-12]},{c:0x4400ff,i:1.2,p:[-12,5,12]}], floor:[0x050520,0x010110], wall:[0x060830,0x020215], grid:0x001844, accent:0x0066ff },
+      lava:    { fog:0x1a0500, fogD:.012, stars:false, sky:[[0,'#1a0500'],[.4,'#3d0800'],[1,'#0d0200']], ambient:[0x2a0800,.8],  lights:[{c:0xff3300,i:4,p:[0,8,0]},{c:0xff8800,i:2,p:[10,3,-10]},{c:0xff6600,i:1.5,p:[-10,3,10]}], floor:[0x1a0800,0x2d0300], wall:[0x200500,0x150200], grid:0x3d0a00, accent:0xff5500 },
+      neon:    { fog:0x000818, fogD:.01,  stars:true,  sky:[[0,'#000818'],[.5,'#000d30'],[1,'#001020']], ambient:[0x001020,.5],  lights:[{c:0x00ffff,i:3,p:[0,8,0]},{c:0xff00aa,i:2,p:[12,5,-12]},{c:0x00aaff,i:2,p:[-12,5,12]}], floor:[0x030d18,0x000d18], wall:[0x040a20,0x020618], grid:0x001838, accent:0x00ffcc },
+      void:    { fog:0x030303, fogD:.025, stars:true,  sky:[[0,'#030303'],[1,'#000000']], ambient:[0x080808,.3], lights:[{c:0x8800ff,i:2.5,p:[0,8,0]},{c:0x4400aa,i:1.5,p:[10,4,-10]}], floor:[0x060606,0x030303], wall:[0x080808,0x040404], grid:0x111111, accent:0x6600ff },
+      aurora:  { fog:0x001408, fogD:.009, stars:true,  sky:[[0,'#001408'],[.4,'#002818'],[1,'#001010']], ambient:[0x001a10,.6],  lights:[{c:0x00ff88,i:3,p:[0,8,0]},{c:0x00ccff,i:2,p:[12,5,-12]},{c:0x88ff00,i:1.5,p:[-12,5,12]}], floor:[0x001408,0x000d05], wall:[0x001a0a,0x000f06], grid:0x002814, accent:0x00ff88 },
+      crimson: { fog:0x0d0000, fogD:.01,  stars:true,  sky:[[0,'#0d0000'],[.5,'#1a0000'],[1,'#080000']], ambient:[0x180000,.7],  lights:[{c:0xff0033,i:4,p:[0,8,0]},{c:0xff4400,i:2,p:[10,5,-10]},{c:0xdd0044,i:1.5,p:[-10,5,10]}], floor:[0x150000,0x0a0000], wall:[0x1a0000,0x0d0000], grid:0x2a0000, accent:0xff0033 },
+    };
+
+    function applyRoomPreset(key) {
+      if (!key) return;
+      const p = ROOM_PRESETS[key]; if (!p) return;
+      const R = ROOMS[currentRoom]; if (!R) return;
+      Object.assign(R, p);
+      buildRoom(currentRoom);
+    }
     function applySetting(key, raw) {
       const v = parseFloat(raw);
       if (key === 'fov') { settings.fov = v; camera.fov = v; camera.updateProjectionMatrix(); $('fov-val').textContent = v + ''; }
