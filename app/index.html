@@ -1320,6 +1320,91 @@
     #steam-modal-import:hover { background: rgba(0,160,60,0.25) }
 
     #steam-modal-import { display: none }
+
+    #electron-folders-btn {
+      display: none;
+      background: rgba(0, 140, 60, 0.1);
+      border: 1px solid rgba(0, 160, 60, 0.28);
+      color: #55ddaa;
+      padding: 6px 10px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 10px;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: background .14s
+    }
+    #electron-folders-btn:hover { background: rgba(0,160,60,0.22) }
+    #electron-folders-btn.active {
+      background: rgba(0,180,70,0.18);
+      border-color: rgba(0,220,90,0.42);
+      color: #44ff99
+    }
+
+    #electron-folders-panel {
+      display: none;
+      flex-direction: column;
+      gap: 4px;
+      padding: 10px 16px 12px;
+      border-bottom: 1px solid rgba(0,160,60,0.15);
+      background: rgba(0, 10, 4, 0.65);
+      flex-shrink: 0
+    }
+    #electron-folders-panel.open { display: flex }
+
+    .efp-head {
+      color: rgba(100,255,170,0.55);
+      font-size: 9px;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      margin-bottom: 2px
+    }
+
+    .efp-row {
+      display: grid;
+      grid-template-columns: 52px minmax(0,1fr) auto auto;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 0;
+      border-top: 1px solid rgba(0,160,60,0.08)
+    }
+    .efp-row:first-of-type { border-top: 0 }
+
+    .efp-label {
+      color: #44ee88;
+      font-size: 9px;
+      letter-spacing: .07em;
+      text-transform: uppercase
+    }
+
+    .efp-path {
+      color: rgba(160,255,200,0.65);
+      font-family: 'Cascadia Code', monospace;
+      font-size: 9px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis
+    }
+    .efp-path.auto { color: rgba(0,180,70,0.35); font-style: italic }
+
+    .efp-browse, .efp-clear {
+      background: rgba(0,140,60,0.12);
+      border: 1px solid rgba(0,160,60,0.28);
+      color: #44dd88;
+      padding: 3px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 9px;
+      white-space: nowrap;
+      transition: background .12s
+    }
+    .efp-browse:hover { background: rgba(0,160,60,0.25) }
+    .efp-clear {
+      color: rgba(255,100,100,0.7);
+      border-color: rgba(200,60,60,0.25);
+      background: rgba(180,30,30,0.08)
+    }
+    .efp-clear:hover { background: rgba(200,40,40,0.2) }
     #steam-web-path-helper {
       display: none;
       margin: 0 14px 12px;
@@ -2657,7 +2742,12 @@
         <button class="steam-provider-tab" data-provider="epic" onclick="setGameProvider('epic')">Epic</button>
       </div>
       <button id="steam-modal-import" onclick="showWebGameFolderGuide()" title="Show default game folder paths">Folders</button>
+      <button id="electron-folders-btn" onclick="toggleElectronFolders()" title="Set custom game library folders per platform">📁 Folders</button>
       <button id="steam-modal-refresh" onclick="refreshSteamLibrary()">↺ Refresh</button>
+    </div>
+    <div id="electron-folders-panel">
+      <div class="efp-head">Custom scan folders — overrides auto-detected paths per platform</div>
+      <div id="electron-folders-list"></div>
     </div>
     <div id="steam-modal-body">
       <div id="steam-web-path-helper">
@@ -7008,8 +7098,10 @@
       const isElectronGames = hasElectronGameApi();
       const importBtn = $('steam-modal-import');
       const helper = $('steam-web-path-helper');
+      const elFoldersBtn = $('electron-folders-btn');
       if (importBtn) importBtn.style.display = isElectronGames ? 'none' : 'inline-flex';
       if (helper) helper.style.display = isElectronGames ? 'none' : 'block';
+      if (elFoldersBtn) elFoldersBtn.style.display = isElectronGames ? 'inline-flex' : 'none';
       if (!isElectronGames) renderWebGamePathHelper();
     }
 
@@ -7052,6 +7144,7 @@
       if (search) search.value = _gameFilter;
       updateGameProviderTabs();
       updateGameModeControls();
+      if (hasElectronGameApi()) loadElectronGameFolders();
       if (_gameLibrary === null) {
         if (hasElectronGameApi()) refreshSteamLibrary();
         else loadCachedWebGameLibrary();
@@ -7105,7 +7198,16 @@
         if (window.electronAPI?.getGameLibraries) result = await window.electronAPI.getGameLibraries();
         else result = await window.electronAPI.getSteamLibrary();
         if (result?.error) throw new Error(result.error);
-        _gameLibrary = Array.isArray(result?.games) ? result.games.map(normalizeGameCard) : [];
+        let games = Array.isArray(result?.games) ? result.games.map(normalizeGameCard) : [];
+
+        // Merge any custom folder scans
+        const customGames = await scanAllElectronCustomFolders();
+        if (customGames.length) {
+          if (status) status.textContent = `Found ${games.length} games, merging ${customGames.length} from custom folders...`;
+          games = uniqueGameCards([...games, ...customGames]);
+        }
+
+        _gameLibrary = games;
         renderSteamGames(_gameLibrary);
       } catch (e) {
         _gameLibrary = [];
@@ -7542,6 +7644,231 @@
     window.launchRenderedGame = launchRenderedGame;
     window.launchSteamGame = launchSteamGame;
     window.openSteamShelf = openSteamModal;
+
+    // ===============================================================
+    // ELECTRON CUSTOM GAME FOLDERS
+    // ===============================================================
+    const ELECTRON_GAME_FOLDERS_KEY = 'electronGameFolders_v1';
+    const ELECTRON_FOLDER_PROVIDERS = [
+      { key: 'steam',  label: 'Steam',  hint: 'steamapps folder or a Steam library root' },
+      { key: 'xbox',   label: 'Xbox',   hint: 'XboxGames folder or any custom Xbox library folder' },
+      { key: 'gog',    label: 'GOG',    hint: 'GOG Games folder' },
+      { key: 'epic',   label: 'Epic',   hint: 'Epic Manifests folder or EpicGamesLauncher data root' },
+      { key: 'custom', label: 'Custom', hint: 'Any folder — tries all platform scanners' },
+    ];
+    let _electronGameFolders = { steam:'', xbox:'', gog:'', epic:'', custom:'' };
+    let _electronFoldersPanelOpen = false;
+
+    async function loadElectronGameFolders() {
+      try {
+        const saved = await DB.get(ELECTRON_GAME_FOLDERS_KEY);
+        if (saved && typeof saved === 'object') _electronGameFolders = { ..._electronGameFolders, ...saved };
+      } catch {}
+    }
+
+    async function saveElectronGameFolders() {
+      try { await DB.set(ELECTRON_GAME_FOLDERS_KEY, { ..._electronGameFolders }); } catch {}
+    }
+
+    function toggleElectronFolders() {
+      _electronFoldersPanelOpen = !_electronFoldersPanelOpen;
+      const panel = $('electron-folders-panel');
+      const btn   = $('electron-folders-btn');
+      if (panel) panel.classList.toggle('open', _electronFoldersPanelOpen);
+      if (btn)   btn.classList.toggle('active', _electronFoldersPanelOpen);
+      if (_electronFoldersPanelOpen) renderElectronFoldersList();
+    }
+
+    function renderElectronFoldersList() {
+      const list = $('electron-folders-list');
+      if (!list) return;
+      list.innerHTML = ELECTRON_FOLDER_PROVIDERS.map(({ key, label, hint }) => {
+        const path = _electronGameFolders[key] || '';
+        return `
+          <div class="efp-row" title="${escHtml(hint)}">
+            <span class="efp-label">${escHtml(label)}</span>
+            <span class="efp-path${path ? '' : ' auto'}" title="${escHtml(path)}">${escHtml(path || 'auto detect')}</span>
+            <button class="efp-browse" onclick="browseElectronFolder('${key}')">Browse…</button>
+            ${path ? `<button class="efp-clear" onclick="clearElectronFolder('${key}')">✕</button>` : '<span></span>'}
+          </div>`;
+      }).join('');
+    }
+
+    async function browseElectronFolder(provider) {
+      if (!window.electronAPI?.openFolder) return;
+      const picked = await window.electronAPI.openFolder();
+      if (!picked) return;
+      _electronGameFolders[provider] = picked;
+      await saveElectronGameFolders();
+      renderElectronFoldersList();
+      showToast(`${provider} folder saved — hit Refresh to rescan`);
+    }
+
+    async function clearElectronFolder(provider) {
+      _electronGameFolders[provider] = '';
+      await saveElectronGameFolders();
+      renderElectronFoldersList();
+      showToast(`${provider} custom folder cleared`);
+    }
+
+    // ── Electron filesystem scanners (use readDir + readText over IPC) ───────
+
+    async function _elReadDir(p) {
+      try { const r = await window.electronAPI.readDir(p); return r?.error ? [] : (r||[]); }
+      catch { return []; }
+    }
+
+    async function _elReadText(p) {
+      try { const r = await window.electronAPI.readText(p); return r?.error ? null : (r||null); }
+      catch { return null; }
+    }
+
+    async function scanElectronSteamFolder(folderPath) {
+      const games = [];
+      const scanAcfDir = async (dir) => {
+        const entries = await _elReadDir(dir);
+        for (const e of entries) {
+          if (e.isDirectory || !/^appmanifest_\d+\.acf$/i.test(e.name)) continue;
+          try {
+            const text = await _elReadText(e.path);
+            if (!text) continue;
+            const appId   = parseAcfValue(text, 'appid');
+            const name    = parseAcfValue(text, 'name');
+            const sizeKb  = parseAcfValue(text, 'SizeOnDisk');
+            if (!appId || !name) continue;
+            games.push(normalizeGameCard({
+              provider:'steam', providerLabel:'Steam', id:appId, appId, name,
+              sizeGb: sizeKb ? (parseInt(sizeKb,10)/1e9).toFixed(1) : null,
+              header:  `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/header.jpg`,
+              portrait:`https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/library_600x900.jpg`,
+              launchType:'steam', launchTarget:{appId}
+            }));
+          } catch {}
+        }
+      };
+      await scanAcfDir(folderPath);
+      // also check steamapps/ subdirectory
+      const top = await _elReadDir(folderPath);
+      const steamapps = top.find(e => e.isDirectory && e.name.toLowerCase()==='steamapps');
+      if (steamapps) await scanAcfDir(steamapps.path);
+      return games;
+    }
+
+    async function scanElectronXboxFolder(folderPath) {
+      const games = [];
+      const scanGameDir = async (dirPath, fallbackName) => {
+        const entries = await _elReadDir(dirPath);
+        if (!entries.length) return;
+        const contentEntry = entries.find(e => e.isDirectory && e.name==='Content');
+        const searchIn = contentEntry ? await _elReadDir(contentEntry.path) : entries;
+        const cfgFile  = searchIn.find(e => !e.isDirectory && e.name==='MicrosoftGame.config');
+        if (!cfgFile && !contentEntry) return;
+        const config = cfgFile ? await _elReadText(cfgFile.path) : null;
+        const name = parseXboxConfigName(config, fallbackName||'Xbox Game');
+        const identity = (config?.match(/<Identity[^>]*Name="([^"]+)"/i)||[])[1]||name;
+        // Attempt a reasonable AUMID — identity + '!App' covers most Game Pass titles
+        const aumid = identity.includes('!') ? identity : identity+'!App';
+        games.push(normalizeGameCard({
+          provider:'xbox', providerLabel:'Xbox', id:identity, name,
+          launchType:'xbox', launchTarget:{aumid}
+        }));
+      };
+      const top = await _elReadDir(folderPath);
+      // folder might be the library root (many game subdirs) or a single game dir
+      let foundAny = false;
+      for (const e of top) {
+        if (e.isDirectory) { await scanGameDir(e.path, e.name); foundAny=true; }
+      }
+      if (!foundAny) await scanGameDir(folderPath, folderPath.split(/[\\/]/).pop());
+      return games;
+    }
+
+    async function scanElectronGogFolder(folderPath) {
+      const games = [];
+      const scanGameDir = async (dirPath, fallbackName) => {
+        const entries = await _elReadDir(dirPath);
+        const infoFile = entries.find(e => !e.isDirectory && /^goggame-.*\.info$/i.test(e.name));
+        if (!infoFile) return;
+        try {
+          const text = await _elReadText(infoFile.path);
+          if (!text) return;
+          const info   = JSON.parse(text);
+          const gameId = String(info.gameId||info.rootGameId||info.id||'').trim();
+          const name   = info.name||info.title||fallbackName||'GOG Game';
+          games.push(normalizeGameCard({
+            provider:'gog', providerLabel:'GOG', id:gameId||name, name,
+            launchType:'gog',
+            launchTarget:{ command: gameId ? `goggalaxy://openGameView/${encodeURIComponent(gameId)}` : '' }
+          }));
+        } catch {}
+      };
+      const top = await _elReadDir(folderPath);
+      for (const e of top) { if (e.isDirectory) await scanGameDir(e.path, e.name); }
+      await scanGameDir(folderPath, folderPath.split(/[\\/]/).pop());
+      return games;
+    }
+
+    async function scanElectronEpicFolder(folderPath) {
+      const games = [];
+      const scanManifestDir = async (dirPath) => {
+        const entries = await _elReadDir(dirPath);
+        for (const e of entries) {
+          if (e.isDirectory || !e.name.toLowerCase().endsWith('.item')) continue;
+          try {
+            const text = await _elReadText(e.path);
+            if (!text) continue;
+            const m = JSON.parse(text);
+            const appName       = m.AppName||m.AppId||'';
+            const catalogItemId = m.CatalogItemId||m.MainGameCatalogItemId||'';
+            const namespaceId   = m.NamespaceId||m.CatalogNamespace||'';
+            const name          = m.DisplayName||m.AppName||appName;
+            if (!name) continue;
+            games.push(normalizeGameCard({
+              provider:'epic', providerLabel:'Epic', id:appName||catalogItemId, name,
+              launchType:'epic', launchTarget:{appName, catalogItemId, namespaceId}
+            }));
+          } catch {}
+        }
+      };
+      await scanManifestDir(folderPath);
+      // also try Data/Manifests nested path
+      const top = await _elReadDir(folderPath);
+      const dataDir = top.find(e => e.isDirectory && e.name==='Data');
+      if (dataDir) {
+        const dataSub = await _elReadDir(dataDir.path);
+        const mDir = dataSub.find(e => e.isDirectory && e.name==='Manifests');
+        if (mDir) await scanManifestDir(mDir.path);
+      }
+      return games;
+    }
+
+    async function scanElectronCustomFolder(folderPath) {
+      const results = await Promise.allSettled([
+        scanElectronSteamFolder(folderPath),
+        scanElectronXboxFolder(folderPath),
+        scanElectronGogFolder(folderPath),
+        scanElectronEpicFolder(folderPath),
+      ]);
+      return results.flatMap(r => r.status==='fulfilled' ? r.value : []);
+    }
+
+    async function scanAllElectronCustomFolders() {
+      if (!hasElectronGameApi()) return [];
+      const f = _electronGameFolders;
+      const tasks = [];
+      if (f.steam)  tasks.push(scanElectronSteamFolder(f.steam));
+      if (f.xbox)   tasks.push(scanElectronXboxFolder(f.xbox));
+      if (f.gog)    tasks.push(scanElectronGogFolder(f.gog));
+      if (f.epic)   tasks.push(scanElectronEpicFolder(f.epic));
+      if (f.custom) tasks.push(scanElectronCustomFolder(f.custom));
+      if (!tasks.length) return [];
+      const results = await Promise.allSettled(tasks);
+      return uniqueGameCards(results.flatMap(r => r.status==='fulfilled' ? r.value : []));
+    }
+
+    window.toggleElectronFolders = toggleElectronFolders;
+    window.browseElectronFolder = browseElectronFolder;
+    window.clearElectronFolder = clearElectronFolder;
 
     // ===============================================================
     // INIT
