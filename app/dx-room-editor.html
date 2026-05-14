@@ -1684,10 +1684,10 @@ function setGizmoMode(mode) {
 }
 document.addEventListener('keydown', e => {
   if (!S.selectedObject) return;
-  if (e.key === '1') setGizmoMode('translate');
-  if (e.key === '2') setGizmoMode('rotate');
-  if (e.key === '3') setGizmoMode('scale');
-  if (e.key === '4') setGizmoMode('facedrag');
+  if (e.key === 'o') setGizmoMode('translate');
+  if (e.key === 'p') setGizmoMode('rotate');
+  if (e.key === 'k') setGizmoMode('scale');
+  if (e.key === 'l') setGizmoMode('facedrag');
   // Escape: cancel active face-drag, restore scale
   if (e.key === 'Escape' && FD.active && FD.undoScale && FD.obj) {
     const o = FD.obj;
