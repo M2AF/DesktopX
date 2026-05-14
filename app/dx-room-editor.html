@@ -156,6 +156,12 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:11px;
   pointer-events:none;opacity:.4}
 #pvlbl{position:absolute;top:10px;left:10px;font-family:var(--fh);font-size:9px;
   letter-spacing:.14em;color:rgba(255,140,0,.38);pointer-events:none}
+#gizmo-btns{position:absolute;top:8px;left:120px;display:flex;gap:4px;z-index:10}
+.gizmo-btn{background:rgba(14,7,0,.85);border:1px solid rgba(255,130,0,.2);color:var(--dim);
+  padding:3px 10px;border-radius:3px;cursor:pointer;font-family:var(--fh);font-size:8px;
+  letter-spacing:.08em;transition:all .12s}
+.gizmo-btn:hover{color:var(--tx);border-color:var(--bhi)}
+.gizmo-btn.on{color:var(--acc);border-color:var(--acc);background:rgba(255,130,0,.12)}
 #pvhint{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);
   color:rgba(255,140,0,.22);font-size:9px;letter-spacing:.07em;pointer-events:none;white-space:nowrap}
 #pvinfo{position:absolute;top:10px;right:12px;font-family:var(--fh);font-size:8px;
@@ -349,6 +355,12 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:11px;
     <canvas id="c"></canvas>
     <div id="pvsc"></div>
     <div id="pvlbl">LIVE PREVIEW</div>
+    <div id="gizmo-btns">
+      <button class="gizmo-btn on" data-mode="translate" onclick="setGizmoMode('translate')">POSITION</button>
+      <button class="gizmo-btn" data-mode="rotate" onclick="setGizmoMode('rotate')">ROTATION</button>
+      <button class="gizmo-btn" data-mode="scale" onclick="setGizmoMode('scale')">SCALE</button>
+      <button class="gizmo-btn" data-mode="facedrag" onclick="setGizmoMode('facedrag')">FACE-DRAG</button>
+    </div>
     <div id="pvhint">WASD·QE move | RMB look | LMB select·face-drag resize | T/R/S gizmo</div>
     <div id="pvinfo"></div>
     <div id="gizmo-mode"></div>
@@ -1338,6 +1350,32 @@ document.addEventListener('pointerlockchange', () => {
   if (document.pointerLockElement !== canvas) isRightClickLooking = false;
 });
 
+// Global mouseup — catch releases outside the canvas so face-drag and gizmo
+// never get stuck. Without this, dragging outside the canvas leaks state.
+window.addEventListener('mouseup', e => {
+  if (e.button !== 0) return;
+
+  // End face-drag if active
+  if (faceDrag.active && faceDrag.obj) {
+    renderTransformControls();
+    rb();
+  }
+  faceDrag.active = false;
+  faceDrag.prepared = false;
+  faceDrag.obj = null;
+  canvas._hit = null;
+  canvas.style.cursor = '';
+
+  // End gizmo drag if TransformControls missed the pointerup
+  if (isGizmoDragging) {
+    syncGizmoToState();
+    isGizmoDragging = false;
+    $('gizmo-mode').innerHTML = '';
+    if (transformControls) transformControls.detach();
+    if (S.selectedObject) setTimeout(() => attachGizmoToObject(S.selectedObject), 50);
+  }
+});
+
 document.addEventListener('mousemove', e => {
   if (!isRightClickLooking) return;
   flyCamera.yaw -= e.movementX * lookSensitivity;
@@ -1362,8 +1400,9 @@ let isGizmoDragging = false;
 function initTransformGizmo() {
   if (!transformControls) {
     transformControls = new THREE.TransformControls(camera, canvas);
+    transformControls.renderOrder = 999;
     scene.add(transformControls);
-    
+
     transformControls.addEventListener('dragging-changed', event => {
       isGizmoDragging = event.value;
       if (isGizmoDragging) {
@@ -1376,9 +1415,21 @@ function initTransformGizmo() {
   }
 }
 
+// Ensure gizmo always renders on top of everything
+function fixGizmoDepth() {
+  if (!transformControls) return;
+  transformControls.traverse(child => {
+    if (child.material) {
+      const mats = Array.isArray(child.material) ? child.material : [child.material];
+      mats.forEach(m => { m.depthTest = false; m.depthWrite = false; });
+    }
+    child.renderOrder = 999;
+  });
+}
+
 function syncGizmoToState() {
   if (!S.selectedObject || !transformControls.object) return;
-  
+
   const obj = S.selectedObject;
   obj.x = parseFloat(transformControls.object.position.x.toFixed(2));
   obj.y = parseFloat(transformControls.object.position.y.toFixed(2));
@@ -1389,25 +1440,33 @@ function syncGizmoToState() {
   obj.sx = parseFloat(transformControls.object.scale.x.toFixed(2));
   obj.sy = parseFloat(transformControls.object.scale.y.toFixed(2));
   obj.sz = parseFloat(transformControls.object.scale.z.toFixed(2));
-  
+
   renderTransformControls();
-  rb();
+  // Don't rb() here — it would dispose the mesh the gizmo is attached to
 }
 
 function attachGizmoToObject(obj) {
   if (!transformControls) initTransformGizmo();
-  
+
+  if (currentGizmoMode === 'facedrag') {
+    // In face-drag mode, don't show the TransformControls gizmo
+    return;
+  }
+
   let targetMesh = null;
   scene.traverse(sceneObj => {
     if (sceneObj.userData.selectableId === obj.id) {
       targetMesh = sceneObj;
     }
   });
-  
+
   if (targetMesh) {
     transformControls.attach(targetMesh);
-    transformControls.setMode('translate');
-    $('gizmo-mode').innerHTML = `<span style="color:#ffcc44">T</span>`;
+    transformControls.setMode(currentGizmoMode);
+    fixGizmoDepth();
+    const colors = {translate:'#ffcc44', rotate:'#ffaa44', scale:'#ff8844'};
+    const labels = {translate:'T', rotate:'R', scale:'S'};
+    $('gizmo-mode').innerHTML = `<span style="color:${colors[currentGizmoMode]}">${labels[currentGizmoMode]}</span>`;
   }
 }
 
@@ -1418,22 +1477,35 @@ function detachGizmo() {
   $('gizmo-mode').innerHTML = '';
 }
 
-// Gizmo mode switching (T/R/S keys)
-document.addEventListener('keydown', e => {
-  if (transformControls && transformControls.object) {
-    if (e.key === 't' || e.key === 'T') {
-      transformControls.setMode('translate');
-      $('gizmo-mode').innerHTML = `<span style="color:#ffcc44">T</span>`;
-    }
-    if (e.key === 'r' || e.key === 'R') {
-      transformControls.setMode('rotate');
-      $('gizmo-mode').innerHTML = `<span style="color:#ffaa44">R</span>`;
-    }
-    if (e.key === 's' || e.key === 'S') {
-      transformControls.setMode('scale');
-      $('gizmo-mode').innerHTML = `<span style="color:#ff8844">S</span>`;
-    }
+// Gizmo mode switching (T/R/S/F keys + buttons)
+let currentGizmoMode = 'translate';
+function setGizmoMode(mode) {
+  currentGizmoMode = mode;
+  document.querySelectorAll('.gizmo-btn').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
+
+  if (mode === 'facedrag') {
+    if (transformControls && transformControls.object) transformControls.detach();
+    $('gizmo-mode').innerHTML = `<span style="color:#ff8844">F</span>`;
+    return;
   }
+
+  if (!transformControls) return;
+  // If switching from facedrag back to gizmo, re-attach
+  if (!transformControls.object && S.selectedObject) {
+    attachGizmoToObject(S.selectedObject);
+  }
+  transformControls.setMode(mode);
+  fixGizmoDepth();
+  const colors = {translate:'#ffcc44', rotate:'#ffaa44', scale:'#ff8844'};
+  const labels = {translate:'T', rotate:'R', scale:'S'};
+  $('gizmo-mode').innerHTML = `<span style="color:${colors[mode]}">${labels[mode]}</span>`;
+}
+document.addEventListener('keydown', e => {
+  if (!S.selectedObject) return;
+  if (e.key === 't' || e.key === 'T') setGizmoMode('translate');
+  if (e.key === 'r' || e.key === 'R') setGizmoMode('rotate');
+  if (e.key === 's' || e.key === 'S') setGizmoMode('scale');
+  if (e.key === 'f' || e.key === 'F') setGizmoMode('facedrag');
 });
 
 // ═══════════════════════════════════════════════════
@@ -1467,30 +1539,37 @@ function findSelectable(intersects) {
   return null;
 }
 
-canvas.addEventListener('pointerdown', e => {
+// Use mousedown/mouseup so TransformControls (which uses pointerdown/pointerup)
+// always processes gizmo clicks first. Mouse events fire after pointer events.
+canvas.addEventListener('mousedown', e => {
   if (e.button !== 0) return;
   if (isGizmoDragging || isRightClickLooking) return;
   faceDrag.downX = e.clientX; faceDrag.downY = e.clientY;
   faceDrag.prepared = false; faceDrag.active = false; faceDrag.obj = null; faceDrag.axis = null;
+  canvas._hit = null;
 
   const rect = canvas.getBoundingClientRect();
   mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
   mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
   raycaster.setFromCamera(mouse, camera);
   const hit = findSelectable(raycaster.intersectObjects(scene.children, true));
+  if (!hit) return;
   canvas._hit = hit;
 
-  if (hit && S.selectedObject && S.selectedType === 'shape' && hit.id === S.selectedObject.id && hit.face) {
-    faceDrag.obj = S.selectedObject;
-    faceDrag.axis = faceDragAxisFromNormal(hit.face.normal);
-    faceDrag.startScale = S.selectedObject[faceDrag.axis];
-    faceDrag.startY = e.clientY;
-    faceDrag.prepared = true;
-    canvas.style.cursor = 'ns-resize';
+  // Only enable face-drag scaling when in facedrag mode
+  if (currentGizmoMode === 'facedrag') {
+    if (S.selectedObject && S.selectedType === 'shape' && hit.id === S.selectedObject.id && hit.face) {
+      faceDrag.obj = S.selectedObject;
+      faceDrag.axis = faceDragAxisFromNormal(hit.face.normal);
+      faceDrag.startScale = S.selectedObject[faceDrag.axis];
+      faceDrag.startY = e.clientY;
+      faceDrag.prepared = true;
+      canvas.style.cursor = 'ns-resize';
+    }
   }
 });
 
-canvas.addEventListener('pointermove', e => {
+canvas.addEventListener('mousemove', e => {
   if (isGizmoDragging || isRightClickLooking) return;
   if (faceDrag.prepared) {
     const dx = e.clientX - faceDrag.downX, dy = e.clientY - faceDrag.downY;
@@ -1507,7 +1586,6 @@ canvas.addEventListener('pointermove', e => {
       return;
     }
   }
-  // Hover cursor feedback
   if (!faceDrag.active) {
     const rect = canvas.getBoundingClientRect();
     mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
@@ -1518,23 +1596,21 @@ canvas.addEventListener('pointermove', e => {
   }
 });
 
-canvas.addEventListener('pointerup', e => {
+canvas.addEventListener('mouseup', e => {
   canvas.style.cursor = '';
-  if (isGizmoDragging) { canvas._hit = null; return; }
+  // Always end any active face-drag first — no early return can skip this
   if (faceDrag.active && faceDrag.obj) {
     renderTransformControls();
     rb();
-    faceDrag.active = false; faceDrag.prepared = false; faceDrag.obj = null;
-    canvas._hit = null;
-    return;
   }
   faceDrag.active = false; faceDrag.prepared = false; faceDrag.obj = null;
+
+  if (isGizmoDragging) { canvas._hit = null; return; }
   if (!canvas._hit) return;
   const hit = canvas._hit; canvas._hit = null;
   const dx = e.clientX - faceDrag.downX, dy = e.clientY - faceDrag.downY;
   if (Math.abs(dx) > faceDrag.threshold || Math.abs(dy) > faceDrag.threshold) return;
 
-  // Click selection — find what was clicked and select it
   let found = S.groups.find(g => g.id === hit.id);
   if (found) { selectGroup(found.id); return; }
   found = S.shapes.find(s => s.id === hit.id);
