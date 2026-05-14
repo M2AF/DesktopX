@@ -1317,10 +1317,11 @@ function updateFlyCamera() {
 let isRightClickLooking = false;
 const lookSensitivity = 0.005;
 
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+
 document.addEventListener('mousedown', e => {
-  if (e.button === 2) { // Right mouse button
+  if (e.button === 2 && e.target === canvas) {
     isRightClickLooking = true;
-    canvas.requestPointerLock = canvas.requestPointerLock || canvas.mozRequestPointerLock;
     canvas.requestPointerLock();
   }
 });
@@ -1328,9 +1329,13 @@ document.addEventListener('mousedown', e => {
 document.addEventListener('mouseup', e => {
   if (e.button === 2) {
     isRightClickLooking = false;
-    document.exitPointerLock = document.exitPointerLock || document.mozExitPointerLock;
-    document.exitPointerLock();
+    if (document.pointerLockElement === canvas) document.exitPointerLock();
   }
+});
+
+// Safety: reset if pointer lock is lost unexpectedly
+document.addEventListener('pointerlockchange', () => {
+  if (document.pointerLockElement !== canvas) isRightClickLooking = false;
 });
 
 document.addEventListener('mousemove', e => {
@@ -1450,76 +1455,98 @@ function isGizmoHit(intersects){
   return false;
 }
 
-canvas.addEventListener('pointerdown', e => {
-  if(e.button!==0)return;
-  if(isGizmoDragging||isRightClickLooking)return;
-  faceDrag.downX=e.clientX; faceDrag.downY=e.clientY;
-  faceDrag.prepared=false; faceDrag.active=false; faceDrag.obj=null; faceDrag.axis=null;
-  mouse.x=(e.clientX/canvas.clientWidth)*2-1;
-  mouse.y=-(e.clientY/canvas.clientHeight)*2+1;
-  raycaster.setFromCamera(mouse,camera);
-  const intersects=raycaster.intersectObjects(scene.children,true);
-  if(isGizmoHit(intersects))return;
-  for(let int of intersects){
-    let o=int.object;
-    while(o&&!o.userData.selectableId)o=o.parent;
-    if(o&&o.userData.selectableId){
-      canvas._hit={obj:o, id:o.userData.selectableId, face:int.face, point:int.point?int.point.clone():null};
-      // If hitting selected shape's face, prepare face-drag
-      if(S.selectedObject&&S.selectedType==='shape'&&o.userData.selectableId===S.selectedObject.id&&int.face){
-        faceDrag.obj=S.selectedObject;
-        faceDrag.axis=faceDragAxisFromNormal(int.face.normal);
-        faceDrag.startScale=S.selectedObject[faceDrag.axis];
-        faceDrag.startY=e.clientY;
-        faceDrag.prepared=true;
-        canvas.style.cursor='ns-resize';
-      }
-      break;
+// Helper: find first selectable object from a raycaster intersection list
+function findSelectable(intersects) {
+  for (let int of intersects) {
+    let o = int.object;
+    while (o) {
+      if (o.userData && o.userData.selectableId) return { obj: o, id: o.userData.selectableId, face: int.face, point: int.point ? int.point.clone() : null };
+      o = o.parent;
     }
   }
-  if(!canvas._hit)canvas._hit=null;
+  return null;
+}
+
+canvas.addEventListener('pointerdown', e => {
+  if (e.button !== 0) return;
+  if (isGizmoDragging || isRightClickLooking) return;
+  faceDrag.downX = e.clientX; faceDrag.downY = e.clientY;
+  faceDrag.prepared = false; faceDrag.active = false; faceDrag.obj = null; faceDrag.axis = null;
+
+  const rect = canvas.getBoundingClientRect();
+  mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+  mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(mouse, camera);
+  const hit = findSelectable(raycaster.intersectObjects(scene.children, true));
+  canvas._hit = hit;
+
+  if (hit && S.selectedObject && S.selectedType === 'shape' && hit.id === S.selectedObject.id && hit.face) {
+    faceDrag.obj = S.selectedObject;
+    faceDrag.axis = faceDragAxisFromNormal(hit.face.normal);
+    faceDrag.startScale = S.selectedObject[faceDrag.axis];
+    faceDrag.startY = e.clientY;
+    faceDrag.prepared = true;
+    canvas.style.cursor = 'ns-resize';
+  }
 });
 
 canvas.addEventListener('pointermove', e => {
-  if(isGizmoDragging||isRightClickLooking)return;
-  if(faceDrag.prepared){
-    const dx=e.clientX-faceDrag.downX, dy=e.clientY-faceDrag.downY;
-    if(!faceDrag.active&&(Math.abs(dx)>faceDrag.threshold||Math.abs(dy)>faceDrag.threshold)){
-      faceDrag.active=true;
+  if (isGizmoDragging || isRightClickLooking) return;
+  if (faceDrag.prepared) {
+    const dx = e.clientX - faceDrag.downX, dy = e.clientY - faceDrag.downY;
+    if (!faceDrag.active && (Math.abs(dx) > faceDrag.threshold || Math.abs(dy) > faceDrag.threshold)) {
+      faceDrag.active = true;
     }
-    if(faceDrag.active&&faceDrag.obj&&faceDrag.axis){
-      const delta=(faceDrag.startY-e.clientY)*0.012;
-      const ns=Math.max(0.05,parseFloat((faceDrag.startScale*(1+delta)).toFixed(2)));
-      faceDrag.obj[faceDrag.axis]=ns;
-      // Direct mesh update (fast path, no full rebuild)
-      scene.traverse(o=>{if(o.userData.selectableId===faceDrag.obj.id){o.scale[faceDrag.axis.charAt(1)]=ns}});
-      // Update scrubber display if visible
-      const inp=$(faceDrag.axis==='sx'?'tsx':faceDrag.axis==='sy'?'tsy':'tsz');
-      if(inp)inp.value=ns.toFixed(2);
+    if (faceDrag.active && faceDrag.obj && faceDrag.axis) {
+      const delta = (faceDrag.startY - e.clientY) * 0.012;
+      const ns = Math.max(0.05, parseFloat((faceDrag.startScale * (1 + delta)).toFixed(2)));
+      faceDrag.obj[faceDrag.axis] = ns;
+      scene.traverse(o => { if (o.userData && o.userData.selectableId === faceDrag.obj.id) { o.scale[faceDrag.axis.charAt(1)] = ns; } });
+      const inp = $(faceDrag.axis === 'sx' ? 'tsx' : faceDrag.axis === 'sy' ? 'tsy' : 'tsz');
+      if (inp) inp.value = ns.toFixed(2);
       return;
     }
+  }
+  // Hover cursor feedback
+  if (!faceDrag.active) {
+    const rect = canvas.getBoundingClientRect();
+    mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(mouse, camera);
+    const over = findSelectable(raycaster.intersectObjects(scene.children, true));
+    canvas.style.cursor = over ? 'pointer' : '';
   }
 });
 
 canvas.addEventListener('pointerup', e => {
-  canvas.style.cursor='';
-  if(faceDrag.active&&faceDrag.obj){
+  canvas.style.cursor = '';
+  if (isGizmoDragging) { canvas._hit = null; return; }
+  if (faceDrag.active && faceDrag.obj) {
     renderTransformControls();
     rb();
-    faceDrag.active=false; faceDrag.prepared=false; faceDrag.obj=null;
-    canvas._hit=null;
+    faceDrag.active = false; faceDrag.prepared = false; faceDrag.obj = null;
+    canvas._hit = null;
     return;
   }
-  faceDrag.active=false; faceDrag.prepared=false; faceDrag.obj=null;
-  if(!canvas._hit)return;
-  const hit=canvas._hit; canvas._hit=null;
-  const dx=e.clientX-faceDrag.downX, dy=e.clientY-faceDrag.downY;
-  if(Math.abs(dx)>faceDrag.threshold||Math.abs(dy)>faceDrag.threshold)return;
-  // Click selection
-  let found=S.shapes.find(s=>s.id===hit.id);
-  if(found){selectShape(found.id);return;}
-  found=S.deskObjects.find(d=>d.id===hit.id);
-  if(found){selectDeskObject(found.id);return;}
+  faceDrag.active = false; faceDrag.prepared = false; faceDrag.obj = null;
+  if (!canvas._hit) return;
+  const hit = canvas._hit; canvas._hit = null;
+  const dx = e.clientX - faceDrag.downX, dy = e.clientY - faceDrag.downY;
+  if (Math.abs(dx) > faceDrag.threshold || Math.abs(dy) > faceDrag.threshold) return;
+
+  // Click selection — find what was clicked and select it
+  let found = S.groups.find(g => g.id === hit.id);
+  if (found) { selectGroup(found.id); return; }
+  found = S.shapes.find(s => s.id === hit.id);
+  if (found) {
+    if (found.group) {
+      const grp = S.groups.find(g => g.id === found.group);
+      if (grp) { selectGroup(grp.id); return; }
+    }
+    selectShape(found.id); return;
+  }
+  found = S.deskObjects.find(d => d.id === hit.id);
+  if (found) { selectDeskObject(found.id); return; }
 });
 
 // ═══════════════════════════════════════════════════
