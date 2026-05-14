@@ -59,11 +59,17 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:11px;
 /* ── SIDEBAR ── */
 #sb{width:310px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--border);
   display:flex;flex-direction:column;overflow:hidden}
-#tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0}
-.tab{flex:1;padding:9px 2px;text-align:center;color:var(--dim);font-size:8px;
-  letter-spacing:.1em;cursor:pointer;border-bottom:2px solid transparent;
+#tabs{flex-shrink:0;border-bottom:1px solid var(--border)}
+#maintabs{display:flex}
+.maintab{flex:1;padding:9px 2px;text-align:center;color:var(--dim);font-size:9px;
+  letter-spacing:.14em;cursor:pointer;border-bottom:2px solid transparent;
   transition:all .14s;font-family:var(--fh);user-select:none}
-.tab:hover{color:var(--tx)}.tab.on{color:var(--acc);border-bottom-color:var(--acc)}
+.maintab:hover{color:var(--tx)}.maintab.on{color:var(--acc);border-bottom-color:var(--acc)}
+#subtabs{display:flex;background:rgba(255,130,0,.04)}
+.subtab{flex:1;padding:6px 2px;text-align:center;color:var(--dim);font-size:7.5px;
+  letter-spacing:.08em;cursor:pointer;border-bottom:2px solid transparent;
+  transition:all .14s;font-family:var(--fh);user-select:none}
+.subtab:hover{color:var(--tx)}.subtab.on{color:var(--gold);border-bottom-color:var(--gold)}
 #panels{flex:1;overflow-y:auto;padding:14px 12px;scroll-behavior:smooth}
 #panels::-webkit-scrollbar{width:3px}
 #panels::-webkit-scrollbar-thumb{background:rgba(255,130,0,.2);border-radius:2px}
@@ -130,7 +136,7 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:11px;
 
 /* ── PREVIEW ── */
 #pv{flex:1;position:relative;overflow:hidden;background:#000}
-#pv canvas{display:block;width:100%!important;height:100%!important}
+#c{display:block;width:100%!important;height:100%!important}
 #pvsc{position:absolute;inset:0;
   background:repeating-linear-gradient(to bottom,transparent 0px,transparent 3px,rgba(0,0,0,.06) 3px,rgba(0,0,0,.06) 4px);
   pointer-events:none;opacity:.4}
@@ -142,6 +148,8 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:11px;
   letter-spacing:.1em;color:rgba(255,140,0,.32);pointer-events:none;text-align:right;line-height:1.9}
 #gizmo-mode{position:absolute;bottom:10px;right:12px;font-family:var(--fm);font-size:9px;
   color:rgba(0,200,140,.6);pointer-events:none}
+#orient{position:absolute;bottom:14px;left:14px;width:80px;height:80px;pointer-events:none;z-index:10;
+  border-radius:50%;background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.08)}
 </style>
 </head>
 <body>
@@ -170,12 +178,18 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:11px;
 <div id="main">
   <div id="sb">
     <div id="tabs">
-      <div class="tab on" data-t="atmo" onclick="st('atmo')">ATMO</div>
-      <div class="tab" data-t="lights" onclick="st('lights')">LIGHTS</div>
-      <div class="tab" data-t="mats" onclick="st('mats')">MATS</div>
-      <div class="tab" data-t="icons" onclick="st('icons')">ICONS</div>
-      <div class="tab" data-t="shapes" onclick="st('shapes')">SHAPES</div>
-      <div class="tab" data-t="portals" onclick="st('portals')">PORTALS</div>
+      <div id="maintabs">
+        <div class="maintab on" data-main="style" onclick="sm('style')">STYLE</div>
+        <div class="maintab" data-main="objects" onclick="sm('objects')">OBJECTS</div>
+      </div>
+      <div id="subtabs">
+        <div class="subtab on" data-t="atmo" data-main="style" onclick="st('atmo')">ATMO</div>
+        <div class="subtab" data-t="lights" data-main="style" onclick="st('lights')">LIGHTS</div>
+        <div class="subtab" data-t="mats" data-main="style" onclick="st('mats')">MATS</div>
+        <div class="subtab" data-t="icons" data-main="objects" onclick="st('icons')">ICONS</div>
+        <div class="subtab" data-t="shapes" data-main="objects" onclick="st('shapes')">SHAPES</div>
+        <div class="subtab" data-t="portals" data-main="objects" onclick="st('portals')">PORTALS</div>
+      </div>
     </div>
     <div id="panels">
 
@@ -278,9 +292,10 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:11px;
     <canvas id="c"></canvas>
     <div id="pvsc"></div>
     <div id="pvlbl">LIVE PREVIEW</div>
-    <div id="pvhint">WASD·QE move | RMB look | LMB select·gizmo | T/R/S mode</div>
+    <div id="pvhint">WASD·QE move | RMB look | LMB select·face-drag resize | T/R/S gizmo</div>
     <div id="pvinfo"></div>
     <div id="gizmo-mode"></div>
+    <canvas id="orient"></canvas>
   </div>
 </div>
 
@@ -311,8 +326,19 @@ function uinfo(){ $(pvinfo).innerHTML=`<div>${v('rn')||'Unnamed'}</div><div styl
 // ═══════════════════════════════════════════════════
 // TABS
 // ═══════════════════════════════════════════════════
+let currentMain = 'style';
+function sm(main){
+  currentMain = main;
+  document.querySelectorAll('.maintab').forEach(t=>t.classList.toggle('on',t.dataset.main===main));
+  document.querySelectorAll('.subtab').forEach(t=>{
+    t.style.display = t.dataset.main===main ? '' : 'none';
+  });
+  // Select first sub-tab of this main category
+  const first = document.querySelector(`.subtab[data-main="${main}"]`);
+  if(first) st(first.dataset.t);
+}
 function st(id){
-  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.t===id));
+  document.querySelectorAll('.subtab').forEach(t=>t.classList.toggle('on',t.dataset.t===id));
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
   $('p-'+id).classList.add('on');
 }
@@ -571,6 +597,13 @@ if(!S.groups)S.groups=[];
 if(!S.deskObjects)S.deskObjects=[];
 S.selectedObject=null;
 S.selectedType=null;
+
+// Face-drag resize state
+const faceDrag = {active:false, axis:null, startScale:0, startY:0, obj:null, prepared:false, downX:0, downY:0, threshold:4};
+function faceDragAxisFromNormal(n){
+  const a=Math.abs(n.x),b=Math.abs(n.y),c=Math.abs(n.z);
+  if(a>=b&&a>=c)return'sx'; if(b>=a&&b>=c)return'sy'; return'sz';
+}
 
 // ═══════════════════════════════════════════════════
 // HYBRID SCRUBBER ENGINE — Pointer Delta + Pixel Threshold
@@ -1077,7 +1110,7 @@ function rb(){
   add(axisHelper);
 
   // Show selection indicator if something is selected
-  if(S.selectedObject)showSelectionIndicator(S.selectedObject);
+  if(S.selectedObject){showSelectionIndicator(S.selectedObject);attachGizmoToObject(S.selectedObject);}
 
   // Update info overlay
   $('pvinfo').innerHTML=`<div>${v('rn')||'Unnamed'}</div><div style="opacity:.4;font-size:7.5px">${v('ri')||'no-id'}</div><div style="opacity:.28;font-size:7.5px;margin-top:3px">${S.lights.length} lights · ${S.icons.length} icons · ${S.portals.length} portals · ${S.shapes.length} shapes · ${S.deskObjects.length} objects</div>`;
@@ -1242,36 +1275,94 @@ document.addEventListener('keydown', e => {
 });
 
 // ═══════════════════════════════════════════════════
-// RAYCASTING FOR SELECTION
+// RAYCASTING — SELECTION + FACE-DRAG RESIZE
 // ═══════════════════════════════════════════════════
-canvas.addEventListener('click', e => {
-  if (isGizmoDragging || isRightClickLooking) return;
-  
-  mouse.x = (e.clientX / canvas.clientWidth) * 2 - 1;
-  mouse.y = -(e.clientY / canvas.clientHeight) * 2 + 1;
-  raycaster.setFromCamera(mouse, camera);
-  
-  const intersects = raycaster.intersectObjects(scene.children, true);
-  for (let int of intersects) {
-    let obj = int.object;
-    while (obj && !obj.userData.selectableId) {
-      obj = obj.parent;
-    }
-    if (obj && obj.userData.selectableId) {
-      // Look for matching shape
-      let found = S.shapes.find(s => s.id === obj.userData.selectableId);
-      if (found) {
-        selectShape(found.id);
-        return;
+function isGizmoHit(intersects){
+  if(!transformControls)return false;
+  for(let int of intersects){
+    let o=int.object;
+    while(o){
+      if(o===transformControls||o.parent===transformControls)return true;
+      if(transformControls.children){
+        for(let c of transformControls.children){if(o===c)return true;}
+        for(let c of transformControls.children){if(c.children&&c.children.includes(o))return true;}
       }
-      // Look for matching desk object
-      found = S.deskObjects.find(d => d.id === obj.userData.selectableId);
-      if (found) {
-        selectDeskObject(found.id);
-        return;
-      }
+      o=o.parent;
     }
   }
+  return false;
+}
+
+canvas.addEventListener('pointerdown', e => {
+  if(e.button!==0)return;
+  if(isGizmoDragging||isRightClickLooking)return;
+  faceDrag.downX=e.clientX; faceDrag.downY=e.clientY;
+  faceDrag.prepared=false; faceDrag.active=false; faceDrag.obj=null; faceDrag.axis=null;
+  mouse.x=(e.clientX/canvas.clientWidth)*2-1;
+  mouse.y=-(e.clientY/canvas.clientHeight)*2+1;
+  raycaster.setFromCamera(mouse,camera);
+  const intersects=raycaster.intersectObjects(scene.children,true);
+  if(isGizmoHit(intersects))return;
+  for(let int of intersects){
+    let o=int.object;
+    while(o&&!o.userData.selectableId)o=o.parent;
+    if(o&&o.userData.selectableId){
+      canvas._hit={obj:o, id:o.userData.selectableId, face:int.face, point:int.point?int.point.clone():null};
+      // If hitting selected shape's face, prepare face-drag
+      if(S.selectedObject&&S.selectedType==='shape'&&o.userData.selectableId===S.selectedObject.id&&int.face){
+        faceDrag.obj=S.selectedObject;
+        faceDrag.axis=faceDragAxisFromNormal(int.face.normal);
+        faceDrag.startScale=S.selectedObject[faceDrag.axis];
+        faceDrag.startY=e.clientY;
+        faceDrag.prepared=true;
+        canvas.style.cursor='ns-resize';
+      }
+      break;
+    }
+  }
+  if(!canvas._hit)canvas._hit=null;
+});
+
+canvas.addEventListener('pointermove', e => {
+  if(isGizmoDragging||isRightClickLooking)return;
+  if(faceDrag.prepared){
+    const dx=e.clientX-faceDrag.downX, dy=e.clientY-faceDrag.downY;
+    if(!faceDrag.active&&(Math.abs(dx)>faceDrag.threshold||Math.abs(dy)>faceDrag.threshold)){
+      faceDrag.active=true;
+    }
+    if(faceDrag.active&&faceDrag.obj&&faceDrag.axis){
+      const delta=(faceDrag.startY-e.clientY)*0.012;
+      const ns=Math.max(0.05,parseFloat((faceDrag.startScale*(1+delta)).toFixed(2)));
+      faceDrag.obj[faceDrag.axis]=ns;
+      // Direct mesh update (fast path, no full rebuild)
+      scene.traverse(o=>{if(o.userData.selectableId===faceDrag.obj.id){o.scale[faceDrag.axis.charAt(1)]=ns}});
+      // Update scrubber display if visible
+      const inp=$(faceDrag.axis==='sx'?'tsx':faceDrag.axis==='sy'?'tsy':'tsz');
+      if(inp)inp.value=ns.toFixed(2);
+      return;
+    }
+  }
+});
+
+canvas.addEventListener('pointerup', e => {
+  canvas.style.cursor='';
+  if(faceDrag.active&&faceDrag.obj){
+    renderTransformControls();
+    rb();
+    faceDrag.active=false; faceDrag.prepared=false; faceDrag.obj=null;
+    canvas._hit=null;
+    return;
+  }
+  faceDrag.active=false; faceDrag.prepared=false; faceDrag.obj=null;
+  if(!canvas._hit)return;
+  const hit=canvas._hit; canvas._hit=null;
+  const dx=e.clientX-faceDrag.downX, dy=e.clientY-faceDrag.downY;
+  if(Math.abs(dx)>faceDrag.threshold||Math.abs(dy)>faceDrag.threshold)return;
+  // Click selection
+  let found=S.shapes.find(s=>s.id===hit.id);
+  if(found){selectShape(found.id);return;}
+  found=S.deskObjects.find(d=>d.id===hit.id);
+  if(found){selectDeskObject(found.id);return;}
 });
 
 // ═══════════════════════════════════════════════════
@@ -1366,6 +1457,54 @@ function createMovieScreenGeometry(){
 }
 
 // ═══════════════════════════════════════════════════
+// ORIENTATION GIZMO — Blender-style corner axis overlay
+// ═══════════════════════════════════════════════════
+const orientGizmo = {renderer:null,scene:null,cam:null,group:null};
+(function initOrientGizmo(){
+  const oc = $('orient'); if(!oc)return;
+  orientGizmo.renderer = new THREE.WebGLRenderer({canvas:oc, alpha:true, antialias:true});
+  orientGizmo.renderer.setSize(80,80);
+  orientGizmo.renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  orientGizmo.scene = new THREE.Scene();
+  orientGizmo.cam = new THREE.PerspectiveCamera(45,1,0.1,10);
+  orientGizmo.cam.position.set(0,0,3.5);
+  const g = new THREE.Group();
+  const coneH=0.22, coneR=0.08, cylR=0.035, cylLen=1.0;
+  const axes=[
+    {axis:'x',color:0xff3333, dir:[1,0,0]},
+    {axis:'y',color:0x33ff33, dir:[0,1,0]},
+    {axis:'z',color:0x3388ff, dir:[0,0,1]}
+  ];
+  axes.forEach(a=>{
+    const mat = new THREE.MeshBasicMaterial({color:a.color, depthTest:false, depthWrite:false});
+    // Cylinder shaft
+    const cyl = new THREE.Mesh(new THREE.CylinderGeometry(cylR,cylR,cylLen,8), mat);
+    const mid = new THREE.Vector3().addScaledVector(new THREE.Vector3(...a.dir), cylLen/2);
+    cyl.position.copy(mid);
+    if(a.axis==='x')cyl.rotation.z=-Math.PI/2;
+    if(a.axis==='z')cyl.rotation.x=Math.PI/2;
+    g.add(cyl);
+    // Cone tip
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(coneR,coneH,8), mat);
+    const tip = new THREE.Vector3().addScaledVector(new THREE.Vector3(...a.dir), cylLen);
+    cone.position.copy(tip);
+    if(a.axis==='x')cone.rotation.z=-Math.PI/2;
+    if(a.axis==='z')cone.rotation.x=Math.PI/2;
+    g.add(cone);
+    // Negative side (dimmer)
+    const mat2 = new THREE.MeshBasicMaterial({color:a.color, depthTest:false, depthWrite:false, transparent:true, opacity:0.35});
+    const cyl2 = new THREE.Mesh(new THREE.CylinderGeometry(cylR,cylR,cylLen,8), mat2);
+    const mid2 = new THREE.Vector3().addScaledVector(new THREE.Vector3(...a.dir), -cylLen/2);
+    cyl2.position.copy(mid2);
+    if(a.axis==='x')cyl2.rotation.z=-Math.PI/2;
+    if(a.axis==='z')cyl2.rotation.x=Math.PI/2;
+    g.add(cyl2);
+  });
+  orientGizmo.scene.add(g);
+  orientGizmo.group = g;
+})();
+
+// ═══════════════════════════════════════════════════
 // RESIZE + LOOP
 // ═══════════════════════════════════════════════════
 function resize(){
@@ -1376,17 +1515,23 @@ window.addEventListener('resize',resize);
 
 (function loop(){
   requestAnimationFrame(loop);
-  
+
   // Update fly camera
   if (!isGizmoDragging) {
     updateFlyCamera();
   }
-  
+
   // Update transform controls
   if (transformControls) {
     transformControls.update();
   }
-  
+
+  // Update orientation gizmo to match camera
+  if (orientGizmo.group) {
+    orientGizmo.group.quaternion.copy(camera.quaternion).invert();
+    orientGizmo.renderer.render(orientGizmo.scene, orientGizmo.cam);
+  }
+
   renderer.render(scene, camera);
 })();
 
@@ -1394,6 +1539,7 @@ window.addEventListener('resize',resize);
 // INIT
 // ═══════════════════════════════════════════════════
 rSky(); rLights(); rIcons(); rPortals(); rb(); resize(); bindStaticScrubs(); initTransformGizmo();
+document.querySelectorAll('.subtab[data-main="objects"]').forEach(t=>t.style.display='none');
 </script>
 </body>
 </html>
