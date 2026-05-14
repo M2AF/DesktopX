@@ -3456,23 +3456,26 @@
     /** Normalise a raw .dxroom export into the shape buildRoom() expects */
     function buildRoomDefFromMod(def) {
       return {
-        name:      def.name      || 'Custom Room',
-        sz:        def.sz        || 40,
-        wallH:     def.wallH     || 14,
-        fog:       def.fog       ?? 0x000510,
-        fogD:      def.fogD      ?? 0.008,
-        sky:       def.sky       || [[0, '#000510'], [1, '#000820']],
-        stars:     def.stars     !== false,
-        ambient:   def.ambient   || [0x001028, 0.6],
-        lights:    def.lights    || [],
-        floor:     def.floor     || [0x050520, 0x010110],
-        wall:      def.wall      || [0x060830, 0x020215],
-        grid:      def.grid      ?? 0x001844,
-        accent:    def.accent    ?? 0x0066ff,
-        portals:   def.portals   || [],
-        icons:     def.icons     || [],
-        iconTypes: def.iconTypes || [],
-        iconWall:  def.iconWall  || 'front'
+        name:       def.name       || 'Custom Room',
+        sz:         def.sz         || 40,
+        wallH:      def.wallH      || 14,
+        fog:        def.fog        ?? 0x000510,
+        fogD:       def.fogD       ?? 0.008,
+        sky:        def.sky        || [[0, '#000510'], [1, '#000820']],
+        stars:      def.stars      !== false,
+        ambient:    def.ambient    || [0x001028, 0.6],
+        lights:     def.lights     || [],
+        floor:      def.floor      || [0x050520, 0x010110],
+        wall:       def.wall       || [0x060830, 0x020215],
+        grid:       def.grid       ?? 0x001844,
+        accent:     def.accent     ?? 0x0066ff,
+        portals:    def.portals    || [],
+        icons:      def.icons      || [],
+        iconTypes:  def.iconTypes  || [],
+        iconWall:   def.iconWall   || 'front',
+        shapes:     def.shapes     || [],
+        groups:     def.groups     || [],
+        deskObjects: def.deskObjects || []
       };
     }
 
@@ -3565,6 +3568,123 @@
     let particleSys = null, sceneLights = [];
     let roomGeoGroup = null; // only the floor/walls/grid/icons - cleared on rebuild
 
+    /** Create a shape from editor data */
+    function createShapeFromData(shape) {
+      let geometry;
+      switch(shape.type.toLowerCase()){
+        case'cube':geometry=new THREE.BoxGeometry(1,1,1);break;
+        case'sphere':geometry=new THREE.SphereGeometry(0.5,32,32);break;
+        case'cylinder':geometry=new THREE.CylinderGeometry(0.5,0.5,1,32);break;
+        case'torus':geometry=new THREE.TorusGeometry(0.5,0.2,16,100);break;
+        case'plane':geometry=new THREE.PlaneGeometry(1,1);break;
+        default:geometry=new THREE.BoxGeometry(1,1,1);
+      }
+      const colorInt = parseInt(shape.color.slice(1), 16);
+      const emissiveInt = parseInt(shape.emissiveColor.slice(1), 16);
+      const material=new THREE.MeshStandardMaterial({
+        color:colorInt,
+        roughness:shape.roughness,
+        metalness:shape.metalness,
+        emissive:emissiveInt,
+        emissiveIntensity:shape.emissiveIntensity,
+        side:THREE.DoubleSide
+      });
+      const mesh=new THREE.Mesh(geometry,material);
+      mesh.position.set(shape.x,shape.y,shape.z);
+      mesh.rotation.set(shape.rx,shape.ry,shape.rz);
+      mesh.scale.set(shape.sx,shape.sy,shape.sz);
+      mesh.castShadow=true;
+      mesh.receiveShadow=true;
+      return mesh;
+    }
+
+    /** Create DJ Desk geometry */
+    function createDJDeskFromData(obj) {
+      const group=new THREE.Group();
+      const C={body:0x0a1428,deck:0x111c30,screen:0x000c1c,trim:0x00a0ff,btn:0x003060,knob:0x002244};
+      const body=new THREE.Mesh(new THREE.BoxGeometry(6,0.18,3.2),new THREE.MeshStandardMaterial({color:C.body,roughness:.6,metalness:.4}));
+      body.position.set(0,1.05,0);body.castShadow=true;body.receiveShadow=true;group.add(body);
+      [[2.6,0,1.3],[2.6,0,-1.3],[-2.6,0,1.3],[-2.6,0,-1.3]].forEach(([x,y,z])=>{
+        const leg=new THREE.Mesh(new THREE.BoxGeometry(.1,1.1,.1),new THREE.MeshStandardMaterial({color:0x001830,metalness:.7,roughness:.3}));
+        leg.position.set(x,.55,z);leg.castShadow=true;leg.receiveShadow=true;group.add(leg);
+      });
+      const platter=new THREE.Mesh(new THREE.CylinderGeometry(.85,.88,.05,36),new THREE.MeshStandardMaterial({color:C.deck,roughness:.3,metalness:.6}));
+      platter.position.set(-1.5,1.16,0);platter.castShadow=true;platter.receiveShadow=true;group.add(platter);
+      for(let r=.2;r<.8;r+=.12){
+        const ring=new THREE.Mesh(new THREE.TorusGeometry(r,.008,8,36),new THREE.MeshStandardMaterial({color:0x001a30,roughness:.9}));
+        ring.rotation.x=Math.PI/2;ring.position.set(-1.5,1.195,0);ring.castShadow=true;ring.receiveShadow=true;group.add(ring);
+      }
+      const label=new THREE.Mesh(new THREE.CylinderGeometry(.22,.22,.06,24),new THREE.MeshStandardMaterial({color:0xff3333,roughness:.5}));
+      label.position.set(-1.5,1.19,0);label.castShadow=true;label.receiveShadow=true;group.add(label);
+      const platterR=platter.clone();platterR.position.set(1.5,1.16,0);platterR.castShadow=true;platterR.receiveShadow=true;group.add(platterR);
+      const labelR=label.clone();labelR.material=label.material.clone();labelR.material.color.set(0x3366ff);labelR.position.set(1.5,1.19,0);labelR.castShadow=true;labelR.receiveShadow=true;group.add(labelR);
+      const screen=new THREE.Mesh(new THREE.PlaneGeometry(3.2,2.0),new THREE.MeshStandardMaterial({color:0x000000,emissive:0x001a38,emissiveIntensity:.5,roughness:.15}));
+      screen.position.set(0,2.4,-.91);screen.castShadow=true;screen.receiveShadow=true;group.add(screen);
+      [[-2.0,'⏮'],[-1.0,'▶'],[0.0,'⏹'],[1.0,'⏭'],[2.0,'📁']].forEach(([x,icon])=>{
+        const bm=new THREE.Mesh(new THREE.BoxGeometry(.8,.44,.08),new THREE.MeshStandardMaterial({color:C.btn,emissive:C.btn,emissiveIntensity:.35,roughness:.3,metalness:.5}));
+        bm.position.set(x,1.27,-.92);bm.castShadow=true;bm.receiveShadow=true;group.add(bm);
+      });
+      const cfTrack=new THREE.Mesh(new THREE.BoxGeometry(3,.04,.12),new THREE.MeshStandardMaterial({color:0x001428,metalness:.6}));
+      cfTrack.position.set(0,1.16,.4);cfTrack.castShadow=true;cfTrack.receiveShadow=true;group.add(cfTrack);
+      const cfKnob=new THREE.Mesh(new THREE.BoxGeometry(.28,.14,.22),new THREE.MeshStandardMaterial({color:0x003366,emissive:0x003366,emissiveIntensity:.3,metalness:.7}));
+      cfKnob.position.set(0,1.22,.4);cfKnob.castShadow=true;cfKnob.receiveShadow=true;group.add(cfKnob);
+      const knobGeo=new THREE.CylinderGeometry(.1,.1,.08,16);
+      for(let i=0;i<3;i++){[-1.6+i*.45,0.6+i*.45].forEach(kx=>{const k=new THREE.Mesh(knobGeo,new THREE.MeshStandardMaterial({color:C.knob,metalness:.8,roughness:.2}));k.position.set(kx,1.22,.8);k.castShadow=true;k.receiveShadow=true;group.add(k)})}
+      const glow=new THREE.PointLight(0x0088ff,2.5,6);glow.position.set(0,.8,0);glow.castShadow=true;group.add(glow);
+      const screenGlow=new THREE.PointLight(0x0044ff,1.2,4);screenGlow.position.set(0,2.2,0);screenGlow.castShadow=true;group.add(screenGlow);
+      group.castShadow=true;
+      group.position.set(obj.x,obj.y,obj.z);
+      group.rotation.set(obj.rx,obj.ry,obj.rz);
+      group.scale.set(obj.sx,obj.sy,obj.sz);
+      return group;
+    }
+
+    /** Create Movie Screen geometry */
+    function createMovieScreenFromData(obj) {
+      const group=new THREE.Group();
+      const W=10,H=5.8;
+      const frameMat=new THREE.MeshStandardMaterial({color:0x0a1020,emissive:0x001030,emissiveIntensity:.3,roughness:.5,metalness:.7});
+      const frame=new THREE.Mesh(new THREE.BoxGeometry(W+.3,H+.3,.12),frameMat);
+      frame.position.set(0,H/2+1.1,0);frame.castShadow=true;frame.receiveShadow=true;group.add(frame);
+      const neonMat=new THREE.MeshStandardMaterial({color:0x0066ff,emissive:0x0066ff,emissiveIntensity:1.2,roughness:.1});
+      [[W+.3,.06,.06,[0,H+1.1+H*.5+.15,0]],[W+.3,.06,.06,[0,1.1-.15,0]],[.06,H+.3,.06,[-(W+.3)/2,H/2+1.1,0]],[.06,H+.3,.06,[(W+.3)/2,H/2+1.1,0]]].forEach(([gW,gH,gD,pos])=>{
+        const m=new THREE.Mesh(new THREE.BoxGeometry(gW,gH,gD),neonMat.clone());m.position.set(...pos);m.castShadow=true;m.receiveShadow=true;group.add(m);
+      });
+      const screenMat=new THREE.MeshBasicMaterial({color:0x000510});
+      const screenMesh=new THREE.Mesh(new THREE.PlaneGeometry(W,H),screenMat);
+      screenMesh.position.set(0,H/2+1.1,.08);screenMesh.castShadow=true;group.add(screenMesh);
+      [[-3.25,'📁'],[-1.95,'▶'],[-0.65,'⏸'],[0.65,'⏹'],[1.95,'🔇'],[3.25,'⛶']].forEach(([x,icon])=>{
+        const bm=new THREE.Mesh(new THREE.BoxGeometry(1.0,.56,.06),new THREE.MeshStandardMaterial({color:0x001840,emissive:0x001840,emissiveIntensity:.4,roughness:.3,metalness:.5}));
+        bm.position.set(x,0.52,.08);bm.castShadow=true;bm.receiveShadow=true;group.add(bm);
+      });
+      const glow2=new THREE.PointLight(0x003388,3.5,12);glow2.position.set(0,H/2+1.1,1);glow2.castShadow=true;group.add(glow2);
+      group.castShadow=true;
+      group.position.set(obj.x,obj.y,obj.z);
+      group.rotation.set(obj.rx,obj.ry,obj.rz);
+      group.scale.set(obj.sx,obj.sy,obj.sz);
+      return group;
+    }
+
+    /** Build shapes and desk objects in room */
+    function buildShapesAndObjects(R) {
+      if(!R.shapes||R.shapes.length===0)return;
+      R.shapes.forEach(shape=>{
+        const mesh=createShapeFromData(shape);
+        roomGeoGroup.add(mesh);
+      });
+      if(R.deskObjects&&R.deskObjects.length>0){
+        R.deskObjects.forEach(obj=>{
+          let geom;
+          if(obj.type==='dj_desk'){
+            geom=createDJDeskFromData(obj);
+          }else if(obj.type==='movie_screen'){
+            geom=createMovieScreenFromData(obj);
+          }
+          if(geom){roomGeoGroup.add(geom)}
+        });
+      }
+    }
+
     function buildRoom(id) {
       if (roomGeoGroup) {
         staticHubGroup.remove(roomGeoGroup);
@@ -3636,6 +3756,7 @@
 
       buildPortals(id);
       buildParticles(R.accent);
+      buildShapesAndObjects(R);
       buildSnapGhost();
 
       // Re-attach pinned windows (they live in staticHubGroup)
@@ -5707,7 +5828,12 @@
         if (keys['KeyA'] || keys['ArrowLeft']) camera.position.addScaledVector(right, -spd * dt);
         if (keys['KeyD'] || keys['ArrowRight']) camera.position.addScaledVector(right, spd * dt);
         camera.position.y = 1.7;
-        camera.position.clamp(new THREE.Vector3(-19.4, 1.7, -19.4), new THREE.Vector3(19.4, 1.7, 19.4));
+        // Clamp to room boundaries (dynamic based on room size)
+        const R = ROOMS[currentRoom];
+        if (R) {
+          const half = (R.sz || 40) / 2 - 0.6;
+          camera.position.clamp(new THREE.Vector3(-half, 1.7, -half), new THREE.Vector3(half, 1.7, half));
+        }
       }
       camera.quaternion.setFromEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
 
@@ -7015,7 +7141,12 @@
         camera.position.addScaledVector(fwd, -ly * spd * dt);
         camera.position.addScaledVector(right, lx * spd * dt);
         camera.position.y = 1.7;
-        camera.position.clamp(new THREE.Vector3(-19.4, 1.7, -19.4), new THREE.Vector3(19.4, 1.7, 19.4));
+        // Clamp to room boundaries (dynamic based on room size)
+        const R = ROOMS[currentRoom];
+        if (R) {
+          const half = (R.sz || 40) / 2 - 0.6;
+          camera.position.clamp(new THREE.Vector3(-half, 1.7, -half), new THREE.Vector3(half, 1.7, half));
+        }
       }
 
       // -- Right stick: camera look (axes 2,3)
