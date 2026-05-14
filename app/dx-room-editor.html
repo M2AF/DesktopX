@@ -5,7 +5,7 @@
 <title>DesktopX · Room Editor</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@r128/examples/js/controls/TransformControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
@@ -217,7 +217,7 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:11px;
 <body>
 
 <div id="hdr">
-  <div class="logo">⬡ DX ROOM EDITOR</div>
+  <div class="logo">⬡ DX ENGINE</div>
   <div class="hsep"></div>
   <div class="hf"><label>NAME</label><input class="ni" id="rn" type="text" value="My Room" oninput="uinfo()"></div>
   <div class="hf"><label>ID</label><input class="ii" id="ri" type="text" value="my_room" oninput="uinfo()"></div>
@@ -228,7 +228,7 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:11px;
       <button onclick="ap('space')">🌌 Deep Space</button>
       <button onclick="ap('lava')">🌋 Lava Cave</button>
       <button onclick="ap('neon')">🌆 Neon City</button>
-      <button onclick="ap('void')">⬛ The Void</button>
+      <button onclick="ap('void')">🌑 The Void</button>
       <button onclick="ap('aurora')">🌿 Aurora</button>
       <button onclick="ap('crimson')">🩸 Crimson</button>
     </div>
@@ -861,9 +861,9 @@ function bindShapeScrub(shape) {
 function bindTransformScrubs(obj) {
   const id = obj.id;
   // Position (unbounded — no fill bar)
-  makeScrub($('tx-s'), { get:()=>obj.x, set:v=>updateObjectProperty(id,'x',v), step:.1, dragScale:.05, dec:2, onChange:()=>renderTransformControls() });
-  makeScrub($('ty-s'), { get:()=>obj.y, set:v=>updateObjectProperty(id,'y',v), step:.1, dragScale:.05, dec:2, onChange:()=>renderTransformControls() });
-  makeScrub($('tz-s'), { get:()=>obj.z, set:v=>updateObjectProperty(id,'z',v), step:.1, dragScale:.05, dec:2, onChange:()=>renderTransformControls() });
+  makeScrub($('tx-s'), { get:()=>obj.x, set:v=>updateObjectProperty(id,'x',v), step:.1, dragScale:.05, dec:2 });
+  makeScrub($('ty-s'), { get:()=>obj.y, set:v=>updateObjectProperty(id,'y',v), step:.1, dragScale:.05, dec:2 });
+  makeScrub($('tz-s'), { get:()=>obj.z, set:v=>updateObjectProperty(id,'z',v), step:.1, dragScale:.05, dec:2 });
   // Rotation (degrees stored, converted to radians)
   const toDeg = r => parseFloat((r * 180/Math.PI).toFixed(1));
   const toRad = d => d * Math.PI/180;
@@ -1123,9 +1123,26 @@ function updateShapeProperty(shapeId,prop,value){
   if(shape){shape[prop]=value;rb();renderShapeCards()}
 }
 
-function updateObjectProperty(objId,prop,value){
-  let obj=S.shapes.find(s=>s.id===objId)||S.groups.find(g=>g.id===objId)||S.deskObjects.find(o=>o.id===objId);
-  if(obj){obj[prop]=value;renderTransformControls();rb()}
+function updateObjectProperty(objId, prop, value) {
+  const obj = S.shapes.find(s=>s.id===objId) || S.groups.find(g=>g.id===objId) || S.deskObjects.find(o=>o.id===objId);
+  if (!obj) return;
+  obj[prop] = value;
+
+  // Fast path: push the new transform directly to the Three.js object.
+  // Calling rb() would dispose the mesh the gizmo is attached to, causing
+  // it to detach and re-attach on every single scrubber tick.
+  scene.traverse(sceneObj => {
+    if (sceneObj.userData && sceneObj.userData.selectableId === objId) {
+      sceneObj.position.set(obj.x, obj.y, obj.z);
+      sceneObj.rotation.set(obj.rx, obj.ry, obj.rz);
+      sceneObj.scale.set(obj.sx, obj.sy, obj.sz);
+    }
+  });
+
+  // Keep the selection wireframe in sync
+  if (selectionHelper) selectionHelper.update();
+
+  renderTransformControls();
 }
 
 function showSelectionIndicator(shape){
@@ -1400,8 +1417,13 @@ let isGizmoDragging = false;
 function initTransformGizmo() {
   if (!transformControls) {
     transformControls = new THREE.TransformControls(camera, canvas);
-    transformControls.renderOrder = 999;
+    transformControls.size = 0.8;
     scene.add(transformControls);
+
+    // Sync UI numbers in real-time while dragging
+    transformControls.addEventListener('change', () => {
+      if (isGizmoDragging) syncGizmoToState();
+    });
 
     transformControls.addEventListener('dragging-changed', event => {
       isGizmoDragging = event.value;
@@ -1409,23 +1431,17 @@ function initTransformGizmo() {
         $('gizmo-mode').innerHTML = `<span style="color:#00ff88">⬤ GIZMO ACTIVE</span>`;
       } else {
         syncGizmoToState();
-        $('gizmo-mode').innerHTML = '';
+        // Rebuild scene from synced state so everything is consistent,
+        // then re-attach the gizmo to the freshly created mesh.
+        rb();
+        const colors = {translate:'#ffcc44', rotate:'#ffaa44', scale:'#ff8844'};
+        const labels = {translate:'T', rotate:'R', scale:'S'};
+        $('gizmo-mode').innerHTML = `<span style="color:${colors[currentGizmoMode]}">${labels[currentGizmoMode]}</span>`;
       }
     });
   }
 }
 
-// Ensure gizmo always renders on top of everything
-function fixGizmoDepth() {
-  if (!transformControls) return;
-  transformControls.traverse(child => {
-    if (child.material) {
-      const mats = Array.isArray(child.material) ? child.material : [child.material];
-      mats.forEach(m => { m.depthTest = false; m.depthWrite = false; });
-    }
-    child.renderOrder = 999;
-  });
-}
 
 function syncGizmoToState() {
   if (!S.selectedObject || !transformControls.object) return;
@@ -1447,23 +1463,26 @@ function syncGizmoToState() {
 
 function attachGizmoToObject(obj) {
   if (!transformControls) initTransformGizmo();
-
-  if (currentGizmoMode === 'facedrag') {
-    // In face-drag mode, don't show the TransformControls gizmo
+  if (!obj || currentGizmoMode === 'facedrag') {
+    if (transformControls) transformControls.detach();
     return;
   }
 
+  if (transformControls.object) transformControls.detach();
+
   let targetMesh = null;
   scene.traverse(sceneObj => {
-    if (sceneObj.userData.selectableId === obj.id) {
+    if (sceneObj.userData && sceneObj.userData.selectableId === obj.id) {
       targetMesh = sceneObj;
     }
   });
 
   if (targetMesh) {
+    targetMesh.updateMatrixWorld();
+    transformControls.size = 1.2;
     transformControls.attach(targetMesh);
     transformControls.setMode(currentGizmoMode);
-    fixGizmoDepth();
+    
     const colors = {translate:'#ffcc44', rotate:'#ffaa44', scale:'#ff8844'};
     const labels = {translate:'T', rotate:'R', scale:'S'};
     $('gizmo-mode').innerHTML = `<span style="color:${colors[currentGizmoMode]}">${labels[currentGizmoMode]}</span>`;
@@ -1495,7 +1514,6 @@ function setGizmoMode(mode) {
     attachGizmoToObject(S.selectedObject);
   }
   transformControls.setMode(mode);
-  fixGizmoDepth();
   const colors = {translate:'#ffcc44', rotate:'#ffaa44', scale:'#ff8844'};
   const labels = {translate:'T', rotate:'R', scale:'S'};
   $('gizmo-mode').innerHTML = `<span style="color:${colors[mode]}">${labels[mode]}</span>`;
