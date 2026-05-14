@@ -168,6 +168,21 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:11px;
   letter-spacing:.1em;color:rgba(255,140,0,.32);pointer-events:none;text-align:right;line-height:1.9}
 #gizmo-mode{position:absolute;bottom:10px;right:12px;font-family:var(--fm);font-size:9px;
   color:rgba(0,200,140,.6);pointer-events:none}
+
+/* ── FACE-DRAG OVERLAY ── */
+#fd-overlay{
+  position:absolute;bottom:34px;right:12px;
+  background:rgba(6,3,0,.88);border:1px solid rgba(255,130,0,.28);
+  border-radius:5px;padding:7px 13px;font-family:var(--fm);font-size:10px;
+  pointer-events:none;display:none;line-height:1.75;
+  backdrop-filter:blur(6px);min-width:160px;
+}
+#fd-overlay.visible{display:block}
+.fd-axis-x{color:#ff6666}.fd-axis-y{color:#66ff99}.fd-axis-z{color:#6699ff}
+#fd-overlay .fd-val{color:var(--gold);font-weight:500}
+#fd-overlay .fd-delta{font-size:9px;opacity:.55;margin-left:4px}
+#fd-overlay .fd-hint{font-size:8.5px;color:var(--dim);margin-top:4px;
+  border-top:1px solid rgba(255,130,0,.1);padding-top:4px}
 #orient{position:absolute;bottom:14px;left:14px;width:80px;height:80px;pointer-events:none;z-index:10;
   border-radius:50%;background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.08)}
 
@@ -364,6 +379,7 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:11px;
     <div id="pvhint">WASD·QE move | RMB look | LMB select·face-drag resize | T/R/S gizmo</div>
     <div id="pvinfo"></div>
     <div id="gizmo-mode"></div>
+    <div id="fd-overlay"></div>
     <canvas id="orient"></canvas>
   </div>
 
@@ -681,11 +697,146 @@ if(!S.deskObjects)S.deskObjects=[];
 S.selectedObject=null;
 S.selectedType=null;
 
-// Face-drag resize state
-const faceDrag = {active:false, axis:null, startScale:0, startY:0, obj:null, prepared:false, downX:0, downY:0, threshold:4};
-function faceDragAxisFromNormal(n){
-  const a=Math.abs(n.x),b=Math.abs(n.y),c=Math.abs(n.z);
-  if(a>=b&&a>=c)return'sx'; if(b>=a&&b>=c)return'sy'; return'sz';
+// ═══════════════════════════════════════════════════
+// FACE-DRAG V2 — Handle-based, pointer-lock, linear
+// ═══════════════════════════════════════════════════
+const FD = {
+  active:      false,   // drag in progress
+  prepared:    false,   // mousedown on a handle, not yet moved past threshold
+  axis:        null,    // 'sx' | 'sy' | 'sz'
+  sign:        1,       // +1 or –1 (which side of the box was clicked)
+  startScale:  0,       // scale value when drag began
+  accumulated: 0,       // total movementY since drag start
+  obj:         null,    // S.selectedObject reference
+  hoverHandle: null,    // Three.js mesh of the handle under cursor
+  handles:     [],      // all 6 handle meshes currently in scene
+  undoScale:   null,    // {sx,sy,sz} snapshot for Escape-cancel
+  downX: 0, downY: 0,
+  THRESHOLD:   4,       // px before drag activates
+  SENSITIVITY: 0.018    // units per pixel
+};
+
+const FD_COLORS  = { sx: 0xff4444, sy: 0x44ff88, sz: 0x4488ff };
+const FD_LABELS  = { sx: 'X', sy: 'Y', sz: 'Z' };
+const FD_CLASSES = { sx: 'fd-axis-x', sy: 'fd-axis-y', sz: 'fd-axis-z' };
+
+// ── Build / clear the 6 face handles for a shape ──
+function buildFaceHandles(obj) {
+  clearFaceHandles();
+  if (!obj || S.selectedType !== 'shape') return;
+
+  let targetMesh = null;
+  scene.traverse(o => {
+    if (o.userData && o.userData.selectableId === obj.id) targetMesh = o;
+  });
+  if (!targetMesh) return;
+
+  const box    = new THREE.Box3().setFromObject(targetMesh);
+  const center = box.getCenter(new THREE.Vector3());
+  const GAP    = 0.1; // distance past the face surface
+
+  const faces = [
+    { axis:'sx', sign:+1, pos: new THREE.Vector3(box.max.x + GAP, center.y, center.z) },
+    { axis:'sx', sign:-1, pos: new THREE.Vector3(box.min.x - GAP, center.y, center.z) },
+    { axis:'sy', sign:+1, pos: new THREE.Vector3(center.x, box.max.y + GAP, center.z) },
+    { axis:'sy', sign:-1, pos: new THREE.Vector3(center.x, box.min.y - GAP, center.z) },
+    { axis:'sz', sign:+1, pos: new THREE.Vector3(center.x, center.y, box.max.z + GAP) },
+    { axis:'sz', sign:-1, pos: new THREE.Vector3(center.x, center.y, box.min.z - GAP) },
+  ];
+
+  faces.forEach(f => {
+    // Flat disc: thin in the axis direction, wider perpendicular
+    const W = 0.28, T = 0.07;
+    const geo = new THREE.BoxGeometry(
+      f.axis === 'sx' ? T : W,
+      f.axis === 'sy' ? T : W,
+      f.axis === 'sz' ? T : W
+    );
+    const mat = new THREE.MeshStandardMaterial({
+      color:            FD_COLORS[f.axis],
+      emissive:         FD_COLORS[f.axis],
+      emissiveIntensity: 0.35,
+      roughness: 0.25,
+      metalness: 0.7,
+      transparent: true,
+      opacity: 0.88,
+      depthTest: false    // always visible through other objects
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.copy(f.pos);
+    mesh.userData.isFaceHandle  = true;
+    mesh.userData.fdAxis        = f.axis;
+    mesh.userData.fdSign        = f.sign;
+    mesh.renderOrder = 999;
+    scene.add(mesh);
+    FD.handles.push(mesh);
+  });
+}
+
+// Reposition existing handles without rebuilding (called during drag)
+function repositionFaceHandles(obj) {
+  if (!obj || FD.handles.length !== 6) return;
+  let targetMesh = null;
+  scene.traverse(o => {
+    if (o.userData && o.userData.selectableId === obj.id) targetMesh = o;
+  });
+  if (!targetMesh) return;
+
+  const box    = new THREE.Box3().setFromObject(targetMesh);
+  const center = box.getCenter(new THREE.Vector3());
+  const GAP    = 0.1;
+
+  const positions = [
+    new THREE.Vector3(box.max.x + GAP, center.y, center.z),
+    new THREE.Vector3(box.min.x - GAP, center.y, center.z),
+    new THREE.Vector3(center.x, box.max.y + GAP, center.z),
+    new THREE.Vector3(center.x, box.min.y - GAP, center.z),
+    new THREE.Vector3(center.x, center.y, box.max.z + GAP),
+    new THREE.Vector3(center.x, center.y, box.min.z - GAP),
+  ];
+  FD.handles.forEach((h, i) => h.position.copy(positions[i]));
+}
+
+function clearFaceHandles() {
+  FD.handles.forEach(h => scene.remove(h));
+  FD.handles = [];
+  FD.hoverHandle = null;
+}
+
+// Update the live overlay readout
+function updateFDOverlay() {
+  const el = $('fd-overlay'); if (!el) return;
+  if (!FD.active || !FD.obj || !FD.axis) { el.classList.remove('visible'); return; }
+
+  const cur   = FD.obj[FD.axis];
+  const delta = cur - FD.startScale;
+  const cls   = FD_CLASSES[FD.axis];
+  const lbl   = FD_LABELS[FD.axis];
+  const sign  = delta >= 0 ? '+' : '';
+  el.innerHTML = `
+    <span class="${cls} fd-axis">Scale ${lbl}</span>
+    <span class="fd-val"> ${cur.toFixed(3)}</span>
+    <span class="fd-delta">(${sign}${delta.toFixed(3)})</span>
+    <div class="fd-hint">Drag · Esc cancel · Ctrl snap 0.25</div>`;
+  el.classList.add('visible');
+}
+
+// Highlight hovered handle / clear previous hover
+function setHandleHover(handle) {
+  if (FD.hoverHandle === handle) return;
+  // Reset old
+  if (FD.hoverHandle) {
+    FD.hoverHandle.material.emissiveIntensity = 0.35;
+    FD.hoverHandle.material.opacity           = 0.88;
+    FD.hoverHandle.scale.setScalar(1);
+  }
+  FD.hoverHandle = handle;
+  // Activate new
+  if (handle) {
+    handle.material.emissiveIntensity = 1.0;
+    handle.material.opacity           = 1.0;
+    handle.scale.setScalar(1.3);
+  }
 }
 
 // ═══════════════════════════════════════════════════
@@ -930,6 +1081,7 @@ function selectShape(shapeId){
   renderHierarchy();
   rb();
   attachGizmoToObject(S.selectedObject);
+  // In facedrag mode, handles are rebuilt by attachGizmoToObject above
 }
 
 function selectGroup(groupId){
@@ -1367,23 +1519,24 @@ document.addEventListener('pointerlockchange', () => {
   if (document.pointerLockElement !== canvas) isRightClickLooking = false;
 });
 
-// Global mouseup — catch releases outside the canvas so face-drag and gizmo
-// never get stuck. Without this, dragging outside the canvas leaks state.
+// Global mouseup — catch releases outside the canvas so face-drag and gizmo never get stuck
 window.addEventListener('mouseup', e => {
   if (e.button !== 0) return;
+  document.exitPointerLock?.();
 
-  // End face-drag if active
-  if (faceDrag.active && faceDrag.obj) {
+  if (FD.active && FD.obj) {
     renderTransformControls();
     rb();
+    setTimeout(() => {
+      if (currentGizmoMode === 'facedrag' && S.selectedObject) buildFaceHandles(S.selectedObject);
+    }, 0);
+    $('fd-overlay').classList.remove('visible');
   }
-  faceDrag.active = false;
-  faceDrag.prepared = false;
-  faceDrag.obj = null;
+  FD.active = false; FD.prepared = false; FD.obj = null; FD.axis = null;
+  FD.accumulated = 0;
   canvas._hit = null;
   canvas.style.cursor = '';
 
-  // End gizmo drag if TransformControls missed the pointerup
   if (isGizmoDragging) {
     syncGizmoToState();
     isGizmoDragging = false;
@@ -1463,12 +1616,19 @@ function syncGizmoToState() {
 
 function attachGizmoToObject(obj) {
   if (!transformControls) initTransformGizmo();
-  if (!obj || currentGizmoMode === 'facedrag') {
+
+  if (currentGizmoMode === 'facedrag') {
+    // In facedrag mode: keep gizmo detached, manage handles instead
     if (transformControls) transformControls.detach();
+    clearFaceHandles();
+    if (obj && S.selectedType === 'shape') buildFaceHandles(obj);
     return;
   }
 
-  if (transformControls.object) transformControls.detach();
+  // All other modes: detach handles, use gizmo
+  clearFaceHandles();
+  if (transformControls && transformControls.object) transformControls.detach();
+  if (!obj) return;
 
   let targetMesh = null;
   scene.traverse(sceneObj => {
@@ -1482,7 +1642,6 @@ function attachGizmoToObject(obj) {
     transformControls.size = 1.2;
     transformControls.attach(targetMesh);
     transformControls.setMode(currentGizmoMode);
-    
     const colors = {translate:'#ffcc44', rotate:'#ffaa44', scale:'#ff8844'};
     const labels = {translate:'T', rotate:'R', scale:'S'};
     $('gizmo-mode').innerHTML = `<span style="color:${colors[currentGizmoMode]}">${labels[currentGizmoMode]}</span>`;
@@ -1504,12 +1663,17 @@ function setGizmoMode(mode) {
 
   if (mode === 'facedrag') {
     if (transformControls && transformControls.object) transformControls.detach();
-    $('gizmo-mode').innerHTML = `<span style="color:#ff8844">F</span>`;
+    $('gizmo-mode').innerHTML = `<span style="color:#ff8844">FACE-DRAG</span>`;
+    // Build handles for the selected shape, if any
+    if (S.selectedObject && S.selectedType === 'shape') buildFaceHandles(S.selectedObject);
     return;
   }
 
+  // Leaving facedrag — remove handles and overlay
+  clearFaceHandles();
+  $('fd-overlay').classList.remove('visible');
+
   if (!transformControls) return;
-  // If switching from facedrag back to gizmo, re-attach
   if (!transformControls.object && S.selectedObject) {
     attachGizmoToObject(S.selectedObject);
   }
@@ -1524,6 +1688,23 @@ document.addEventListener('keydown', e => {
   if (e.key === '2') setGizmoMode('rotate');
   if (e.key === '3') setGizmoMode('scale');
   if (e.key === '4') setGizmoMode('facedrag');
+  // Escape: cancel active face-drag, restore scale
+  if (e.key === 'Escape' && FD.active && FD.undoScale && FD.obj) {
+    const o = FD.obj;
+    o.sx = FD.undoScale.sx; o.sy = FD.undoScale.sy; o.sz = FD.undoScale.sz;
+    scene.traverse(m => {
+      if (m.userData && m.userData.selectableId === o.id) {
+        m.scale.set(o.sx, o.sy, o.sz);
+      }
+    });
+    document.exitPointerLock?.();
+    FD.active = false; FD.prepared = false; FD.obj = null;
+    FD.accumulated = 0;
+    canvas.style.cursor = '';
+    $('fd-overlay').classList.remove('visible');
+    renderTransformControls();
+    setTimeout(() => { if (currentGizmoMode === 'facedrag' && S.selectedObject) buildFaceHandles(S.selectedObject); }, 0);
+  }
 });
 
 // ═══════════════════════════════════════════════════
@@ -1562,72 +1743,134 @@ function findSelectable(intersects) {
 canvas.addEventListener('mousedown', e => {
   if (e.button !== 0) return;
   if (isGizmoDragging || isRightClickLooking) return;
-  faceDrag.downX = e.clientX; faceDrag.downY = e.clientY;
-  faceDrag.prepared = false; faceDrag.active = false; faceDrag.obj = null; faceDrag.axis = null;
+
+  FD.downX = e.clientX; FD.downY = e.clientY;
+  FD.prepared = false; FD.active = false; FD.obj = null; FD.axis = null;
   canvas._hit = null;
 
   const rect = canvas.getBoundingClientRect();
-  mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-  mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+  mouse.x = ((e.clientX - rect.left) / rect.width)  *  2 - 1;
+  mouse.y = -((e.clientY - rect.top)  / rect.height) *  2 + 1;
   raycaster.setFromCamera(mouse, camera);
+
+  // ── FACE-DRAG MODE: check handle first ──────────────
+  if (currentGizmoMode === 'facedrag' && S.selectedObject && S.selectedType === 'shape') {
+    const handleHits = raycaster.intersectObjects(FD.handles, false);
+    if (handleHits.length > 0) {
+      const h = handleHits[0].object;
+      FD.obj        = S.selectedObject;
+      FD.axis       = h.userData.fdAxis;
+      FD.sign       = h.userData.fdSign;
+      FD.startScale = S.selectedObject[FD.axis];
+      FD.accumulated = 0;
+      FD.prepared   = true;
+      FD.undoScale  = { sx: FD.obj.sx, sy: FD.obj.sy, sz: FD.obj.sz };
+      canvas.requestPointerLock?.();
+      canvas.style.cursor = 'ns-resize';
+      e.preventDefault();
+      return; // don't fall through to selection
+    }
+  }
+
+  // ── NORMAL SELECTION HIT ────────────────────────────
   const hit = findSelectable(raycaster.intersectObjects(scene.children, true));
   if (!hit) return;
   canvas._hit = hit;
-
-  // Only enable face-drag scaling when in facedrag mode
-  if (currentGizmoMode === 'facedrag') {
-    if (S.selectedObject && S.selectedType === 'shape' && hit.id === S.selectedObject.id && hit.face) {
-      faceDrag.obj = S.selectedObject;
-      faceDrag.axis = faceDragAxisFromNormal(hit.face.normal);
-      faceDrag.startScale = S.selectedObject[faceDrag.axis];
-      faceDrag.startY = e.clientY;
-      faceDrag.prepared = true;
-      canvas.style.cursor = 'ns-resize';
-    }
-  }
 });
 
 canvas.addEventListener('mousemove', e => {
   if (isGizmoDragging || isRightClickLooking) return;
-  if (faceDrag.prepared) {
-    const dx = e.clientX - faceDrag.downX, dy = e.clientY - faceDrag.downY;
-    if (!faceDrag.active && (Math.abs(dx) > faceDrag.threshold || Math.abs(dy) > faceDrag.threshold)) {
-      faceDrag.active = true;
+
+  // ── ACTIVE FACE-DRAG ──────────────────────────────
+  if (FD.prepared || FD.active) {
+    if (!FD.active) {
+      // Threshold: activate once we've moved past THRESHOLD pixels (or pointer lock fires)
+      const dx = e.clientX - FD.downX, dy = e.clientY - FD.downY;
+      if (Math.abs(dx) < FD.THRESHOLD && Math.abs(dy) < FD.THRESHOLD && !document.pointerLockElement) return;
+      FD.active = true;
+      canvas.style.cursor = 'ns-resize';
     }
-    if (faceDrag.active && faceDrag.obj && faceDrag.axis) {
-      const delta = (faceDrag.startY - e.clientY) * 0.012;
-      const ns = Math.max(0.05, parseFloat((faceDrag.startScale * (1 + delta)).toFixed(2)));
-      faceDrag.obj[faceDrag.axis] = ns;
-      scene.traverse(o => { if (o.userData && o.userData.selectableId === faceDrag.obj.id) { o.scale[faceDrag.axis.charAt(1)] = ns; } });
-      const inp = $(faceDrag.axis === 'sx' ? 'tsx' : faceDrag.axis === 'sy' ? 'tsy' : 'tsz');
-      if (inp) inp.value = ns.toFixed(2);
-      return;
-    }
+
+    // Linear additive scale from drag start
+    const snap = e.ctrlKey;
+    FD.accumulated += -e.movementY * FD.SENSITIVITY;
+    let ns = FD.startScale + FD.accumulated;
+    if (snap) ns = Math.round(ns / 0.25) * 0.25; // Ctrl = snap to 0.25
+    ns = Math.max(0.05, parseFloat(ns.toFixed(3)));
+    FD.obj[FD.axis] = ns;
+
+    // Push to Three.js mesh directly (no full rebuild)
+    scene.traverse(o => {
+      if (o.userData && o.userData.selectableId === FD.obj.id) {
+        o.scale[FD.axis.charAt(1)] = ns;
+      }
+    });
+
+    // Sync handle positions in real-time
+    repositionFaceHandles(FD.obj);
+    if (selectionHelper) selectionHelper.update();
+
+    // Sync scrubber input
+    const scrubInpId = { sx:'tsx', sy:'tsy', sz:'tsz' }[FD.axis];
+    const scrubInp = $(scrubInpId);
+    if (scrubInp) scrubInp.value = ns.toFixed(2);
+
+    updateFDOverlay();
+    return;
   }
-  if (!faceDrag.active) {
+
+  // ── HOVER IN FACE-DRAG MODE ───────────────────────
+  if (currentGizmoMode === 'facedrag') {
     const rect = canvas.getBoundingClientRect();
-    mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-    mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    mouse.x = ((e.clientX - rect.left) / rect.width)  *  2 - 1;
+    mouse.y = -((e.clientY - rect.top)  / rect.height) *  2 + 1;
     raycaster.setFromCamera(mouse, camera);
-    const over = findSelectable(raycaster.intersectObjects(scene.children, true));
-    canvas.style.cursor = over ? 'pointer' : '';
+
+    if (FD.handles.length > 0) {
+      const hits = raycaster.intersectObjects(FD.handles, false);
+      if (hits.length > 0) {
+        setHandleHover(hits[0].object);
+        canvas.style.cursor = 'ns-resize';
+        return;
+      }
+    }
+    setHandleHover(null);
+    // Fall through to normal hover cursor
   }
+
+  // ── NORMAL HOVER CURSOR ───────────────────────────
+  const rect = canvas.getBoundingClientRect();
+  mouse.x = ((e.clientX - rect.left) / rect.width)  *  2 - 1;
+  mouse.y = -((e.clientY - rect.top)  / rect.height) *  2 + 1;
+  raycaster.setFromCamera(mouse, camera);
+  const over = findSelectable(raycaster.intersectObjects(scene.children, true));
+  canvas.style.cursor = over ? 'pointer' : '';
 });
 
 canvas.addEventListener('mouseup', e => {
   canvas.style.cursor = '';
-  // Always end any active face-drag first — no early return can skip this
-  if (faceDrag.active && faceDrag.obj) {
+  document.exitPointerLock?.();
+
+  if (FD.active && FD.obj) {
+    // Commit: rebuild scene so geometry is truly updated
     renderTransformControls();
     rb();
+    // Re-build handles after rb() recreates scene objects
+    setTimeout(() => {
+      if (currentGizmoMode === 'facedrag' && S.selectedObject) buildFaceHandles(S.selectedObject);
+    }, 0);
+    $('fd-overlay').classList.remove('visible');
   }
-  faceDrag.active = false; faceDrag.prepared = false; faceDrag.obj = null;
+  const wasActive = FD.active;
+  FD.active = false; FD.prepared = false; FD.obj = null; FD.axis = null; FD.accumulated = 0;
 
   if (isGizmoDragging) { canvas._hit = null; return; }
+  if (wasActive) { canvas._hit = null; return; } // don't trigger selection after a drag
   if (!canvas._hit) return;
+
   const hit = canvas._hit; canvas._hit = null;
-  const dx = e.clientX - faceDrag.downX, dy = e.clientY - faceDrag.downY;
-  if (Math.abs(dx) > faceDrag.threshold || Math.abs(dy) > faceDrag.threshold) return;
+  const dx = e.clientX - FD.downX, dy = e.clientY - FD.downY;
+  if (Math.abs(dx) > FD.THRESHOLD || Math.abs(dy) > FD.THRESHOLD) return;
 
   let found = S.groups.find(g => g.id === hit.id);
   if (found) { selectGroup(found.id); return; }
@@ -1803,6 +2046,15 @@ window.addEventListener('resize',resize);
   if (transformControls) {
     transformControls.update();
   }
+
+  // Keep face handles in sync with selected object (handles can drift if
+  // the object is moved by other means while face-drag mode is active)
+  if (currentGizmoMode === 'facedrag' && S.selectedObject && FD.handles.length > 0 && !FD.active) {
+    repositionFaceHandles(S.selectedObject);
+  }
+
+  // Keep selection wireframe in sync
+  if (selectionHelper) selectionHelper.update();
 
   // Update orientation gizmo to match camera
   if (orientGizmo.group) {
