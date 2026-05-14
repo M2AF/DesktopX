@@ -1520,10 +1520,10 @@ function setGizmoMode(mode) {
 }
 document.addEventListener('keydown', e => {
   if (!S.selectedObject) return;
-  if (e.key === 't' || e.key === 'T') setGizmoMode('translate');
-  if (e.key === 'r' || e.key === 'R') setGizmoMode('rotate');
-  if (e.key === 's' || e.key === 'S') setGizmoMode('scale');
-  if (e.key === 'f' || e.key === 'F') setGizmoMode('facedrag');
+  if (e.key === '1') setGizmoMode('translate');
+  if (e.key === '2') setGizmoMode('rotate');
+  if (e.key === '3') setGizmoMode('scale');
+  if (e.key === '4') setGizmoMode('facedrag');
 });
 
 // ═══════════════════════════════════════════════════
