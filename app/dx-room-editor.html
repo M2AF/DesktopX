@@ -57,8 +57,19 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:11px;
 #main{flex:1;display:flex;overflow:hidden}
 
 /* ── SIDEBAR ── */
-#sb{width:310px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--border);
-  display:flex;flex-direction:column;overflow:hidden}
+#sb{width:310px;min-width:200px;max-width:500px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden;position:relative;transition:width .25s ease}
+#sb.collapsed{width:36px;min-width:36px;overflow:visible}
+#sb.collapsed #tabs,#sb.collapsed #panels{display:none}
+#sb-toggle{position:absolute;top:50%;right:-12px;transform:translateY(-50%);width:20px;height:44px;
+  background:var(--panel);border:1px solid var(--border);border-left:none;border-radius:0 5px 5px 0;
+  color:var(--dim);cursor:pointer;font-size:8px;display:flex;align-items:center;justify-content:center;
+  transition:all .15s;z-index:20;padding:0;line-height:1}
+#sb-toggle:hover{color:var(--gold);border-color:var(--bhi)}
+#sb.collapsed #sb-toggle{right:-20px;border-left:1px solid var(--border);border-radius:5px}
+#sb-resize{position:absolute;right:0;top:0;bottom:0;width:5px;cursor:ew-resize;z-index:19;transition:background .15s}
+#sb-resize:hover,#sb-resize.active{background:rgba(255,130,0,.25)}
+#sb.collapsed #sb-resize{display:none}
 #tabs{flex-shrink:0;border-bottom:1px solid var(--border)}
 #maintabs{display:flex}
 .maintab{flex:1;padding:9px 2px;text-align:center;color:var(--dim);font-size:9px;
@@ -96,15 +107,18 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:11px;
 .scrub.dragging{border-color:var(--acc);background:linear-gradient(135deg,rgba(255,130,0,.15),rgba(255,100,0,.08));
   box-shadow:inset 0 0 8px rgba(255,130,0,.15),0 0 12px rgba(255,130,0,.12)}
 .scrub.focus-mode{border-color:rgba(255,200,0,.35);cursor:text}
-.scrub-fill{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,rgba(255,130,0,.12),rgba(255,130,0,.04));
-  pointer-events:none;transition:width .05s ease;box-shadow:inset -1px 0 3px rgba(0,0,0,.1)}
+.scrub-fill{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,rgba(255,130,0,.18),rgba(255,130,0,.06));
+  pointer-events:none;transition:width .15s ease;box-shadow:inset -1px 0 4px rgba(0,0,0,.15);border-radius:5px 0 0 5px}
+.scrub-thumb{position:absolute;top:2px;bottom:2px;width:6px;background:var(--gold);border-radius:3px;
+  pointer-events:none;transition:left .15s ease;box-shadow:0 0 6px rgba(255,200,0,.4),0 0 2px rgba(255,200,0,.6);z-index:1;
+  transform:translateX(-50%)}
 .scrub-lbl{padding:0 8px 0 9px;font-size:9px;letter-spacing:.06em;color:var(--dim);
   white-space:nowrap;flex-shrink:0;border-right:1px solid rgba(255,130,0,.12);line-height:28px;font-weight:400;
-  transition:color .12s ease;text-transform:uppercase}
+  transition:color .12s ease;text-transform:uppercase;z-index:2;position:relative}
 .scrub.dragging .scrub-lbl{color:var(--gold)}
 .scrub-inp{flex:1;background:transparent;border:none;color:var(--acc);font-family:var(--fm);
   font-size:11px;padding:0 8px;text-align:right;outline:none;cursor:ew-resize;min-width:0;
-  transition:color .12s ease;font-weight:400}
+  transition:color .12s ease;font-weight:400;z-index:2;position:relative}
 .scrub-inp:focus{cursor:text;color:var(--gold);outline:none}
 .scrub-inp:disabled{opacity:.5;cursor:not-allowed}
 .scrub-inp::-webkit-inner-spin-button,.scrub-inp::-webkit-outer-spin-button{display:none}
@@ -150,6 +164,48 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:11px;
   color:rgba(0,200,140,.6);pointer-events:none}
 #orient{position:absolute;bottom:14px;left:14px;width:80px;height:80px;pointer-events:none;z-index:10;
   border-radius:50%;background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.08)}
+
+/* ── RIGHT PANEL · HIERARCHY ── */
+#rp{width:260px;min-width:180px;max-width:420px;flex-shrink:0;background:var(--panel);border-left:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden;position:relative;transition:width .25s ease}
+#rp.collapsed{width:36px;min-width:36px;overflow:visible}
+#rp.collapsed #rp-content{display:none}
+#rp-toggle{position:absolute;top:50%;left:-12px;transform:translateY(-50%);width:20px;height:44px;
+  background:var(--panel);border:1px solid var(--border);border-right:none;border-radius:5px 0 0 5px;
+  color:var(--dim);cursor:pointer;font-size:8px;display:flex;align-items:center;justify-content:center;
+  transition:all .15s;z-index:20;padding:0;line-height:1}
+#rp-toggle:hover{color:var(--gold);border-color:var(--bhi)}
+#rp.collapsed #rp-toggle{left:-20px;border-right:1px solid var(--border);border-radius:5px}
+#rp-resize{position:absolute;left:0;top:0;bottom:0;width:5px;cursor:ew-resize;z-index:19;transition:background .15s}
+#rp-resize:hover,#rp-resize.active{background:rgba(255,130,0,.25)}
+#rp.collapsed #rp-resize{display:none}
+#rp-content{flex:1;display:flex;flex-direction:column;overflow:hidden}
+#rp-hdr{font-family:var(--fh);font-size:9px;letter-spacing:.16em;color:var(--acc);padding:12px 14px 8px;
+  border-bottom:1px solid var(--border);flex-shrink:0}
+#rp-tree{overflow-y:auto;padding:6px 0;scroll-behavior:smooth;max-height:50%}
+#rp-tree::-webkit-scrollbar{width:3px}
+#rp-tree::-webkit-scrollbar-thumb{background:rgba(255,130,0,.2);border-radius:2px}
+#rp-data{flex-shrink:0;padding:12px 14px;border-top:1px solid var(--border);overflow-y:auto}
+#rp-data::-webkit-scrollbar{width:3px}
+#rp-data::-webkit-scrollbar-thumb{background:rgba(255,130,0,.2);border-radius:2px}
+#rp-actions{flex-shrink:0;padding:8px 10px;border-top:1px solid var(--border);display:flex;gap:6px}
+#rp-actions button{flex:1;background:rgba(255,130,0,.1);border:1px solid var(--border);color:var(--dim);
+  padding:6px 4px;border-radius:4px;cursor:pointer;font-family:var(--fm);font-size:9px;
+  letter-spacing:.04em;transition:all .12s}
+#rp-actions button:hover{background:rgba(255,130,0,.2);color:var(--tx);border-color:var(--bhi)}
+#rp-actions button:disabled{opacity:.3;cursor:not-allowed;pointer-events:none}
+.h-node{display:flex;align-items:center;gap:6px;padding:5px 14px;cursor:pointer;font-size:10px;
+  color:var(--tx);transition:background .1s;user-select:none;border-left:2px solid transparent}
+.h-node:hover{background:rgba(255,130,0,.08)}
+.h-node.sel{background:rgba(255,130,0,.15);border-left-color:var(--acc);color:var(--gold)}
+.h-node .h-icon{width:14px;text-align:center;flex-shrink:0;font-size:10px}
+.h-node .h-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.h-node .h-type{font-size:8px;color:var(--dim);flex-shrink:0}
+.h-group .h-node{padding-left:28px}
+.h-group-header .h-arrow{font-size:8px;width:12px;transition:transform .15s;flex-shrink:0}
+.h-group-header .h-arrow.open{transform:rotate(90deg)}
+.h-group-children{display:none}
+.h-group-children.open{display:block}
 </style>
 </head>
 <body>
@@ -177,6 +233,8 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:11px;
 
 <div id="main">
   <div id="sb">
+    <button id="sb-toggle" onclick="toggleSidebar()" title="Collapse/Expand">◀</button>
+    <div id="sb-resize"></div>
     <div id="tabs">
       <div id="maintabs">
         <div class="maintab on" data-main="style" onclick="sm('style')">STYLE</div>
@@ -282,7 +340,6 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:11px;
         <button onclick="createDeskObject('dj_desk')" style="width:100%;margin-bottom:6px;background:rgba(0,180,120,.12);border:1px solid rgba(0,200,140,.3);color:#44ffbb;padding:6px;border-radius:4px;cursor:pointer;font-size:10px;font-family:var(--fm)">🎛️ DJ Desk</button>
         <button onclick="createDeskObject('movie_screen')" style="width:100%;background:rgba(0,180,120,.12);border:1px solid rgba(0,200,140,.3);color:#44ffbb;padding:6px;border-radius:4px;cursor:pointer;font-size:10px;font-family:var(--fm)">🎬 Movie Screen</button>
         <div id="shapes-list" style="margin-top:12px"></div>
-        <div id="transform-controls" style="display:none;margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,130,0,.12)"></div>
       </div>
 
     </div>
@@ -296,6 +353,20 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:11px;
     <div id="pvinfo"></div>
     <div id="gizmo-mode"></div>
     <canvas id="orient"></canvas>
+  </div>
+
+  <div id="rp">
+    <button id="rp-toggle" onclick="toggleRightPanel()" title="Collapse/Expand">▶</button>
+    <div id="rp-resize"></div>
+    <div id="rp-content">
+      <div id="rp-hdr">⬡ HIERARCHY</div>
+      <div id="rp-tree"></div>
+      <div id="rp-data" style="display:none"></div>
+      <div id="rp-actions">
+        <button id="btn-group" onclick="groupSelected()" disabled>GROUP</button>
+        <button id="btn-ungroup" onclick="ungroupSelected()" disabled>UNGROUP</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -479,7 +550,7 @@ function exportRoom(){
     iconTypes:S.icons.map(i=>i.type),
     iconWall:v('iw'),
     shapes:S.shapes.map(s=>({id:s.id,type:s.type,color:s.color,roughness:s.roughness,metalness:s.metalness,emissiveColor:s.emissiveColor,emissiveIntensity:s.emissiveIntensity,x:s.x,y:s.y,z:s.z,rx:s.rx,ry:s.ry,rz:s.rz,sx:s.sx,sy:s.sy,sz:s.sz,group:s.group})),
-    groups:S.groups.map(g=>({id:g.id,label:g.label,shapeIds:g.shapeIds,x:g.x,y:g.y,z:g.z,rx:g.rx,ry:g.ry,rz:g.rz,visible:g.visible})),
+    groups:S.groups.map(g=>({id:g.id,label:g.label,shapeIds:g.shapeIds,deskObjIds:g.deskObjIds||[],x:g.x,y:g.y,z:g.z,rx:g.rx,ry:g.ry,rz:g.rz,sx:g.sx||1,sy:g.sy||1,sz:g.sz||1,visible:g.visible})),
     deskObjects:S.deskObjects.map(o=>({id:o.id,type:o.type,x:o.x,y:o.y,z:o.z,rx:o.rx,ry:o.ry,rz:o.rz,sx:o.sx,sy:o.sy,sz:o.sz,visible:o.visible}))
   };
   const a=document.createElement('a');
@@ -576,7 +647,7 @@ function importRoom(def){
 
   // ── Groups ──────────────────────────────────────────
   if(Array.isArray(def.groups)){
-    S.groups=def.groups.map(g=>({id:g.id,label:g.label,shapeIds:g.shapeIds,x:g.x,y:g.y,z:g.z,rx:g.rx,ry:g.ry,rz:g.rz,visible:g.visible}));
+    S.groups=def.groups.map(g=>({id:g.id,label:g.label,shapeIds:g.shapeIds,deskObjIds:g.deskObjIds||[],x:g.x,y:g.y,z:g.z,rx:g.rx,ry:g.ry,rz:g.rz,sx:g.sx||1,sy:g.sy||1,sz:g.sz||1,visible:g.visible}));
   }
 
   // ── Desk Objects (DJ Desk, Movie Screen) ───────────
@@ -615,6 +686,8 @@ function makeScrub(el, opts) {
   const inp  = el.querySelector('.scrub-inp');
   const fill = el.querySelector('.scrub-fill');
   const lbl  = el.querySelector('.scrub-lbl');
+  let thumb = el.querySelector('.scrub-thumb');
+  if (!thumb) { thumb = document.createElement('div'); thumb.className = 'scrub-thumb'; el.appendChild(thumb); }
   
   // State
   let isDragging      = false;
@@ -639,6 +712,7 @@ function makeScrub(el, opts) {
     if (!fill || opts.min == null || opts.max == null) return;
     const pct = Math.max(0, Math.min(1, (opts.get() - opts.min) / (opts.max - opts.min)));
     fill.style.width = (pct * 100) + '%';
+    if (thumb) thumb.style.left = (pct * 100) + '%';
   }
   
   function apply(val) {
@@ -696,7 +770,7 @@ function makeScrub(el, opts) {
       }
       
       if (isDragging) {
-        dragAccum += e.movementX * opts.step;
+        dragAccum += e.movementX * opts.step * (opts.dragScale ?? 1);
         if (Math.abs(dragAccum) >= opts.step * 0.5) {
           apply(opts.get() + dragAccum);
           dragAccum = 0;
@@ -766,18 +840,18 @@ function bindLightScrub(i) {
 
 // ── Per-shape material scrubbers ────────────────────
 function bindShapeScrub(shape) {
-  makeScrub($(`sr-${shape.id}`), { get:()=>shape.roughness,        set:v=>updateShapeProperty(shape.id,'roughness',v),        min:0, max:1, step:.01, dec:2 });
-  makeScrub($(`sm-${shape.id}`), { get:()=>shape.metalness,        set:v=>updateShapeProperty(shape.id,'metalness',v),        min:0, max:1, step:.01, dec:2 });
-  makeScrub($(`se-${shape.id}`), { get:()=>shape.emissiveIntensity,set:v=>updateShapeProperty(shape.id,'emissiveIntensity',v),min:0, max:2, step:.01, dec:2 });
+  makeScrub($(`sr-${shape.id}`), { get:()=>shape.roughness,        set:v=>updateShapeProperty(shape.id,'roughness',v),        min:0, max:1, step:.01, dragScale:.3, dec:2 });
+  makeScrub($(`sm-${shape.id}`), { get:()=>shape.metalness,        set:v=>updateShapeProperty(shape.id,'metalness',v),        min:0, max:1, step:.01, dragScale:.3, dec:2 });
+  makeScrub($(`se-${shape.id}`), { get:()=>shape.emissiveIntensity,set:v=>updateShapeProperty(shape.id,'emissiveIntensity',v),min:0, max:2, step:.01, dragScale:.3, dec:2 });
 }
 
 // ── Transform scrubbers (position / rotation / scale) ─
 function bindTransformScrubs(obj) {
   const id = obj.id;
   // Position (unbounded — no fill bar)
-  makeScrub($('tx-s'), { get:()=>obj.x, set:v=>updateObjectProperty(id,'x',v), step:.1, dec:2, onChange:()=>renderTransformControls() });
-  makeScrub($('ty-s'), { get:()=>obj.y, set:v=>updateObjectProperty(id,'y',v), step:.1, dec:2, onChange:()=>renderTransformControls() });
-  makeScrub($('tz-s'), { get:()=>obj.z, set:v=>updateObjectProperty(id,'z',v), step:.1, dec:2, onChange:()=>renderTransformControls() });
+  makeScrub($('tx-s'), { get:()=>obj.x, set:v=>updateObjectProperty(id,'x',v), step:.1, dragScale:.05, dec:2, onChange:()=>renderTransformControls() });
+  makeScrub($('ty-s'), { get:()=>obj.y, set:v=>updateObjectProperty(id,'y',v), step:.1, dragScale:.05, dec:2, onChange:()=>renderTransformControls() });
+  makeScrub($('tz-s'), { get:()=>obj.z, set:v=>updateObjectProperty(id,'z',v), step:.1, dragScale:.05, dec:2, onChange:()=>renderTransformControls() });
   // Rotation (degrees stored, converted to radians)
   const toDeg = r => parseFloat((r * 180/Math.PI).toFixed(1));
   const toRad = d => d * Math.PI/180;
@@ -785,9 +859,9 @@ function bindTransformScrubs(obj) {
   makeScrub($('try-s'), { get:()=>toDeg(obj.ry), set:v=>updateObjectProperty(id,'ry',toRad(v)), min:0, max:360, step:1, dec:0 });
   makeScrub($('trz-s'), { get:()=>toDeg(obj.rz), set:v=>updateObjectProperty(id,'rz',toRad(v)), min:0, max:360, step:1, dec:0 });
   // Scale
-  makeScrub($('tsx-s'), { get:()=>obj.sx, set:v=>updateObjectProperty(id,'sx',v), min:.05, max:10, step:.1, dec:2 });
-  makeScrub($('tsy-s'), { get:()=>obj.sy, set:v=>updateObjectProperty(id,'sy',v), min:.05, max:10, step:.1, dec:2 });
-  makeScrub($('tsz-s'), { get:()=>obj.sz, set:v=>updateObjectProperty(id,'sz',v), min:.05, max:10, step:.1, dec:2 });
+  makeScrub($('tsx-s'), { get:()=>obj.sx, set:v=>updateObjectProperty(id,'sx',v), min:.05, max:10, step:.1, dragScale:.05, dec:2 });
+  makeScrub($('tsy-s'), { get:()=>obj.sy, set:v=>updateObjectProperty(id,'sy',v), min:.05, max:10, step:.1, dragScale:.05, dec:2 });
+  makeScrub($('tsz-s'), { get:()=>obj.sz, set:v=>updateObjectProperty(id,'sz',v), min:.05, max:10, step:.1, dragScale:.05, dec:2 });
 }
 
 const canvas=$('c');
@@ -831,46 +905,81 @@ function showShapeMenu(){$('shape-menu').style.display=$('shape-menu').style.dis
 function createShape(type){
   const id=`shape_${String(S.shapes.length+1).padStart(3,'0')}`;
   S.shapes.push({id,type,color:'#ff8800',roughness:0.5,metalness:0,emissiveColor:'#000000',emissiveIntensity:0,x:0,y:0,z:0,rx:0,ry:0,rz:0,sx:1,sy:1,sz:1,group:null});
-  selectShape(id);
   $('shape-menu').style.display='none';
-  rb();
+  selectShape(id);
 }
 
 function selectShape(shapeId){
   S.selectedObject=S.shapes.find(s=>s.id===shapeId);
   S.selectedType='shape';
+  S.hierarchySelection=[{type:'shape',id:shapeId}];
   renderShapeCards();
   renderTransformControls();
-  attachGizmoToObject(S.selectedObject);
+  renderHierarchy();
   rb();
+  attachGizmoToObject(S.selectedObject);
 }
 
 function selectGroup(groupId){
   S.selectedObject=S.groups.find(g=>g.id===groupId);
   S.selectedType='group';
+  S.hierarchySelection=[{type:'group',id:groupId}];
   renderShapeCards();
   renderTransformControls();
-  attachGizmoToObject(S.selectedObject);
+  renderHierarchy();
   rb();
+  attachGizmoToObject(S.selectedObject);
 }
 
 function deleteShape(shapeId){
   S.shapes=S.shapes.filter(s=>s.id!==shapeId);
   S.groups.forEach(g=>{g.shapeIds=g.shapeIds.filter(id=>id!==shapeId)});
-  S.groups=S.groups.filter(g=>g.shapeIds.length>0);
+  S.groups=S.groups.filter(g=>g.shapeIds.length+(g.deskObjIds||[]).length>0);
   S.selectedObject=null;
+  S.hierarchySelection=[];
   detachGizmo();
+  showSelectionIndicator(null);
+  renderHierarchy();
   renderShapeCards();
+  renderTransformControls();
   rb();
 }
 
 function deleteGroup(groupId){
   const group=S.groups.find(g=>g.id===groupId);
-  if(group){group.shapeIds.forEach(id=>{const s=S.shapes.find(sh=>sh.id===id);if(s)s.group=null})}
+  if(group){
+    // Build group world transform
+    const gm = new THREE.Matrix4().compose(
+      new THREE.Vector3(group.x, group.y, group.z),
+      new THREE.Quaternion().setFromEuler(new THREE.Euler(group.rx, group.ry, group.rz)),
+      new THREE.Vector3(group.sx, group.sy, group.sz)
+    );
+    group.shapeIds.forEach(id=>{const s=S.shapes.find(sh=>sh.id===id);if(s)s.group=null});
+    // Restore world positions for shapes
+    group.shapeIds.forEach(sid=>{
+      const s=S.shapes.find(sh=>sh.id===sid);
+      if(s){
+        const wp = new THREE.Vector3(s.x, s.y, s.z).applyMatrix4(gm);
+        s.x = parseFloat(wp.x.toFixed(2)); s.y = parseFloat(wp.y.toFixed(2)); s.z = parseFloat(wp.z.toFixed(2));
+      }
+    });
+    // Restore world positions for desk objects
+    (group.deskObjIds||[]).forEach(oid=>{
+      const o=S.deskObjects.find(d=>d.id===oid);
+      if(o){
+        const wp = new THREE.Vector3(o.x, o.y, o.z).applyMatrix4(gm);
+        o.x = parseFloat(wp.x.toFixed(2)); o.y = parseFloat(wp.y.toFixed(2)); o.z = parseFloat(wp.z.toFixed(2));
+      }
+    });
+  }
   S.groups=S.groups.filter(g=>g.id!==groupId);
   S.selectedObject=null;
+  S.hierarchySelection=[];
   detachGizmo();
+  showSelectionIndicator(null);
+  renderHierarchy();
   renderShapeCards();
+  renderTransformControls();
   rb();
 }
 
@@ -878,23 +987,30 @@ function createDeskObject(type){
   const id=`${type}_${String(S.deskObjects.length+1).padStart(3,'0')}`;
   S.deskObjects.push({id,type,x:0,y:2,z:0,rx:0,ry:0,rz:0,sx:1,sy:1,sz:1,visible:true});
   selectDeskObject(id);
-  rb();
 }
 
 function selectDeskObject(objId){
   S.selectedObject=S.deskObjects.find(o=>o.id===objId);
   S.selectedType='deskObject';
+  S.hierarchySelection=[{type:'deskObject',id:objId}];
   renderShapeCards();
   renderTransformControls();
-  attachGizmoToObject(S.selectedObject);
+  renderHierarchy();
   rb();
+  attachGizmoToObject(S.selectedObject);
 }
 
 function deleteDeskObject(objId){
   S.deskObjects=S.deskObjects.filter(o=>o.id!==objId);
+  S.groups.forEach(g=>{if(g.deskObjIds)g.deskObjIds=g.deskObjIds.filter(id=>id!==objId)});
+  S.groups=S.groups.filter(g=>g.shapeIds.length+(g.deskObjIds||[]).length>0);
   S.selectedObject=null;
+  S.hierarchySelection=[];
   detachGizmo();
+  showSelectionIndicator(null);
+  renderHierarchy();
   renderShapeCards();
+  renderTransformControls();
   rb();
 }
 
@@ -925,7 +1041,7 @@ function createShapeMesh(shape){
       geometry=new THREE.BoxGeometry(1,1,1);
       geometry.translate(0,0.5,0);
   }
-  const material=new THREE.MeshStandardMaterial({color:h2i(shape.color),roughness:shape.roughness,metalness:shape.metalness,emissive:h2i(shape.emissiveColor),emissiveIntensity:shape.emissiveIntensity,side:THREE.DoubleSide});
+  const material=new THREE.MeshStandardMaterial({color:h2i(shape.color),roughness:shape.roughness,metalness:shape.metalness,emissive:h2i(shape.emissiveColor),emissiveIntensity:shape.emissiveIntensity});
   const mesh=new THREE.Mesh(geometry,material);
   mesh.position.set(shape.x,shape.y,shape.z);
   mesh.rotation.set(shape.rx,shape.ry,shape.rz);
@@ -945,10 +1061,12 @@ function renderShapeCards(){
     card.className='card';
     if(S.selectedObject?.id===shape.id)card.style.background='rgba(255,130,0,.25)';
     card.innerHTML=`<div class="ch"><span>${shape.type.charAt(0).toUpperCase()+shape.type.slice(1)} #${shape.id.split('_')[1]}</span><button class="del" onclick="deleteShape('${shape.id}')">✕</button></div>
-<div class="cr"><input type="color" value="${shape.color}" onchange="updateShapeProperty('${shape.id}','color',this.value)"><span class="cv">${shape.color}</span></div>
+<label style="color:var(--dim);font-size:8px;letter-spacing:.08em;display:block;margin-bottom:3px">COLOR</label>
+	<div class="cr"><input type="color" value="${shape.color}" onchange="updateShapeProperty('${shape.id}','color',this.value);cs(this)"><span class="cv">${shape.color}</span></div>
 <div class="scrub" id="sr-${shape.id}"><div class="scrub-fill"></div><span class="scrub-lbl">Roughness</span><input type="number" class="scrub-inp" value="${shape.roughness.toFixed(2)}" step="0.01"></div>
 <div class="scrub" id="sm-${shape.id}"><div class="scrub-fill"></div><span class="scrub-lbl">Metalness</span><input type="number" class="scrub-inp" value="${shape.metalness.toFixed(2)}" step="0.01"></div>
-<div class="cr"><input type="color" value="${shape.emissiveColor}" onchange="updateShapeProperty('${shape.id}','emissiveColor',this.value)"><span class="cv">${shape.emissiveColor}</span></div>
+<label style="color:var(--dim);font-size:8px;letter-spacing:.08em;display:block;margin-bottom:3px">EMISSIVE</label>
+	<div class="cr"><input type="color" value="${shape.emissiveColor}" onchange="updateShapeProperty('${shape.id}','emissiveColor',this.value);cs(this)"><span class="cv">${shape.emissiveColor}</span></div>
 <div class="scrub" id="se-${shape.id}"><div class="scrub-fill"></div><span class="scrub-lbl">Emissive</span><input type="number" class="scrub-inp" value="${shape.emissiveIntensity.toFixed(2)}" step="0.01"></div>`;
     card.onclick=()=>selectShape(shape.id);
     container.appendChild(card);
@@ -966,24 +1084,25 @@ function renderShapeCards(){
 }
 
 function renderTransformControls(){
-  if(!S.selectedObject){$('transform-controls').style.display='none';return}
-  const obj=S.selectedObject;
-  const ctrl=$('transform-controls');
-  ctrl.style.display='block';
-  ctrl.innerHTML=`
-<div class="sec">POSITION</div>
-<div class="scrub" id="tx-s"><div class="scrub-fill"></div><span class="scrub-lbl">X</span><input type="number" class="scrub-inp" id="tx" value="${obj.x.toFixed(2)}" step="0.1"></div>
-<div class="scrub" id="ty-s"><div class="scrub-fill"></div><span class="scrub-lbl">Y</span><input type="number" class="scrub-inp" id="ty" value="${obj.y.toFixed(2)}" step="0.1"></div>
-<div class="scrub" id="tz-s"><div class="scrub-fill"></div><span class="scrub-lbl">Z</span><input type="number" class="scrub-inp" id="tz" value="${obj.z.toFixed(2)}" step="0.1"></div>
-<div class="sec">ROTATION (°)</div>
-<div class="scrub" id="trx-s"><div class="scrub-fill"></div><span class="scrub-lbl">X°</span><input type="number" class="scrub-inp" id="trx" value="${(obj.rx*180/Math.PI).toFixed(0)}" step="1"></div>
-<div class="scrub" id="try-s"><div class="scrub-fill"></div><span class="scrub-lbl">Y°</span><input type="number" class="scrub-inp" id="try" value="${(obj.ry*180/Math.PI).toFixed(0)}" step="1"></div>
-<div class="scrub" id="trz-s"><div class="scrub-fill"></div><span class="scrub-lbl">Z°</span><input type="number" class="scrub-inp" id="trz" value="${(obj.rz*180/Math.PI).toFixed(0)}" step="1"></div>
-<div class="sec">SCALE</div>
-<div class="scrub" id="tsx-s"><div class="scrub-fill"></div><span class="scrub-lbl">X</span><input type="number" class="scrub-inp" id="tsx" value="${obj.sx.toFixed(2)}" step="0.1"></div>
-<div class="scrub" id="tsy-s"><div class="scrub-fill"></div><span class="scrub-lbl">Y</span><input type="number" class="scrub-inp" id="tsy" value="${obj.sy.toFixed(2)}" step="0.1"></div>
-<div class="scrub" id="tsz-s"><div class="scrub-fill"></div><span class="scrub-lbl">Z</span><input type="number" class="scrub-inp" id="tsz" value="${obj.sz.toFixed(2)}" step="0.1"></div>`;
-  // bind transform scrubbers
+  const data = $('rp-data');
+  if (!data) return;
+  if (!S.selectedObject) { data.style.display = 'none'; return; }
+  const obj = S.selectedObject;
+  data.style.display = 'block';
+  data.innerHTML = `<div class="sec">OBJECT DATA</div>
+  <div style="color:var(--dim);font-size:8px;letter-spacing:.05em;margin-bottom:8px">${obj.id||''}</div>
+  <div class="sec">POSITION</div>
+  <div class="scrub" id="tx-s"><div class="scrub-fill"></div><span class="scrub-lbl">X</span><input type="number" class="scrub-inp" id="tx" value="${obj.x.toFixed(2)}" step="0.1"></div>
+  <div class="scrub" id="ty-s"><div class="scrub-fill"></div><span class="scrub-lbl">Y</span><input type="number" class="scrub-inp" id="ty" value="${obj.y.toFixed(2)}" step="0.1"></div>
+  <div class="scrub" id="tz-s"><div class="scrub-fill"></div><span class="scrub-lbl">Z</span><input type="number" class="scrub-inp" id="tz" value="${obj.z.toFixed(2)}" step="0.1"></div>
+  <div class="sec">ROTATION (°)</div>
+  <div class="scrub" id="trx-s"><div class="scrub-fill"></div><span class="scrub-lbl">X°</span><input type="number" class="scrub-inp" id="trx" value="${(obj.rx*180/Math.PI).toFixed(0)}" step="1"></div>
+  <div class="scrub" id="try-s"><div class="scrub-fill"></div><span class="scrub-lbl">Y°</span><input type="number" class="scrub-inp" id="try" value="${(obj.ry*180/Math.PI).toFixed(0)}" step="1"></div>
+  <div class="scrub" id="trz-s"><div class="scrub-fill"></div><span class="scrub-lbl">Z°</span><input type="number" class="scrub-inp" id="trz" value="${(obj.rz*180/Math.PI).toFixed(0)}" step="1"></div>
+  <div class="sec">SCALE</div>
+  <div class="scrub" id="tsx-s"><div class="scrub-fill"></div><span class="scrub-lbl">X</span><input type="number" class="scrub-inp" id="tsx" value="${obj.sx.toFixed(2)}" step="0.1"></div>
+  <div class="scrub" id="tsy-s"><div class="scrub-fill"></div><span class="scrub-lbl">Y</span><input type="number" class="scrub-inp" id="tsy" value="${obj.sy.toFixed(2)}" step="0.1"></div>
+  <div class="scrub" id="tsz-s"><div class="scrub-fill"></div><span class="scrub-lbl">Z</span><input type="number" class="scrub-inp" id="tsz" value="${obj.sz.toFixed(2)}" step="0.1"></div>`;
   bindTransformScrubs(obj);
 }
 
@@ -1023,6 +1142,9 @@ function rb(){
 
   // Ambient
   add(new THREE.AmbientLight(h2i(v('ac')),fv('ai')),true);
+
+  // Neutral hemisphere light keeps shapes showing their true color
+  add(new THREE.HemisphereLight(0xffffff,0x222222,0.35),true);
 
   // Point lights + helpers
   S.lights.forEach(l=>{
@@ -1080,34 +1202,69 @@ function rb(){
     scene.add(g); pvO.push(g);
   });
 
-  // Render shapes
-  S.shapes.forEach(shape=>{
-    const mesh=createShapeMesh(shape);
+
+  // ---- RENDER GROUPS ----
+  const groupedShapeIds = new Set();
+  const groupedDeskObjIds = new Set();
+  S.groups.forEach(g => {
+    const grp = new THREE.Group();
+    grp.position.set(g.x, g.y, g.z);
+    grp.rotation.set(g.rx, g.ry, g.rz);
+    grp.scale.set(g.sx, g.sy, g.sz);
+    grp.userData.groupId = g.id;
+    grp.userData.selectableId = g.id;
+
+    g.shapeIds.forEach(sid => {
+      const shape = S.shapes.find(sh => sh.id===sid);
+      if (!shape) return;
+      groupedShapeIds.add(sid);
+      const mesh = createShapeMesh(shape);
+      mesh.position.set(shape.x, shape.y, shape.z);
+      grp.add(mesh);
+    });
+    (g.deskObjIds||[]).forEach(oid => {
+      const obj = S.deskObjects.find(o => o.id===oid);
+      if (!obj) return;
+      groupedDeskObjIds.add(oid);
+      let geom;
+      if (obj.type==='dj_desk') geom = createDJDeskGeometry();
+      else if (obj.type==='movie_screen') geom = createMovieScreenGeometry();
+      if (geom) {
+        geom.position.set(obj.x, obj.y, obj.z);
+        geom.rotation.set(obj.rx, obj.ry, obj.rz);
+        geom.scale.set(obj.sx, obj.sy, obj.sz);
+        geom.userData.deskObjId = obj.id;
+        geom.userData.selectableId = obj.id;
+        geom.castShadow = true;
+        grp.add(geom);
+      }
+    });
+    add(grp);
+  });
+
+  // ---- RENDER UNGROUPED SHAPES ----
+  S.shapes.forEach(shape => {
+    if (groupedShapeIds.has(shape.id)) return;
+    const mesh = createShapeMesh(shape);
     add(mesh);
   });
 
-  // Render desk objects (simplified geometry, no interaction)
-  S.deskObjects.forEach(obj=>{
+  // ---- RENDER UNGROUPED DESK OBJECTS ----
+  S.deskObjects.forEach(obj => {
+    if (groupedDeskObjIds.has(obj.id)) return;
     let geom;
-    if(obj.type==='dj_desk'){
-      geom=createDJDeskGeometry();
-    }else if(obj.type==='movie_screen'){
-      geom=createMovieScreenGeometry();
-    }
-    if(geom){
-      geom.position.set(obj.x,obj.y,obj.z);
-      geom.rotation.set(obj.rx,obj.ry,obj.rz);
-      geom.scale.set(obj.sx,obj.sy,obj.sz);
-      geom.userData.deskObjId=obj.id;
-      geom.userData.selectableId=obj.id;
-      geom.castShadow=true;
+    if (obj.type==='dj_desk') geom = createDJDeskGeometry();
+    else if (obj.type==='movie_screen') geom = createMovieScreenGeometry();
+    if (geom) {
+      geom.position.set(obj.x, obj.y, obj.z);
+      geom.rotation.set(obj.rx, obj.ry, obj.rz);
+      geom.scale.set(obj.sx, obj.sy, obj.sz);
+      geom.userData.deskObjId = obj.id;
+      geom.userData.selectableId = obj.id;
+      geom.castShadow = true;
       add(geom);
     }
   });
-
-  // Add axis helper
-  const axisHelper=new THREE.AxesHelper(2);
-  add(axisHelper);
 
   // Show selection indicator if something is selected
   if(S.selectedObject){showSelectionIndicator(S.selectedObject);attachGizmoToObject(S.selectedObject);}
@@ -1535,11 +1692,310 @@ window.addEventListener('resize',resize);
   renderer.render(scene, camera);
 })();
 
+
+// ═══════════════════════════════════════════════════
+// SIDEBAR COLLAPSE + RESIZE
+// ═══════════════════════════════════════════════════
+let sbCollapsed = false;
+function toggleSidebar(){
+  sbCollapsed = !sbCollapsed;
+  const sb = $('sb'), btn = $('sb-toggle');
+  sb.classList.toggle('collapsed', sbCollapsed);
+  btn.textContent = sbCollapsed ? '▶' : '◀';
+  setTimeout(resize, 280);
+}
+
+(function initSbResize(){
+  const sb = $('sb'), handle = $('sb-resize');
+  let dragging = false, startX = 0, startW = 0;
+  handle.addEventListener('mousedown', e => {
+    if (sbCollapsed) return;
+    dragging = true; startX = e.clientX; startW = sb.offsetWidth;
+    handle.classList.add('active');
+    document.body.style.cursor = 'ew-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+  window.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const w = Math.max(200, Math.min(500, startW + (e.clientX - startX)));
+    sb.style.width = w + 'px';
+    resize();
+  });
+  window.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    handle.classList.remove('active');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  });
+})();
+
+// ═══════════════════════════════════════════════════
+// RIGHT PANEL COLLAPSE + RESIZE
+// ═══════════════════════════════════════════════════
+let rpCollapsed = false;
+function toggleRightPanel(){
+  rpCollapsed = !rpCollapsed;
+  const rp = $('rp'), btn = $('rp-toggle');
+  rp.classList.toggle('collapsed', rpCollapsed);
+  btn.textContent = rpCollapsed ? '◀' : '▶';
+  setTimeout(resize, 280);
+}
+
+(function initRpResize(){
+  const rp = $('rp'), handle = $('rp-resize');
+  let dragging = false, startX = 0, startW = 0;
+  handle.addEventListener('mousedown', e => {
+    if (rpCollapsed) return;
+    dragging = true; startX = e.clientX; startW = rp.offsetWidth;
+    handle.classList.add('active');
+    document.body.style.cursor = 'ew-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+  window.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const w = Math.max(180, Math.min(420, startW - (e.clientX - startX)));
+    rp.style.width = w + 'px';
+    resize();
+  });
+  window.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    handle.classList.remove('active');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  });
+})();
+
+// ═══════════════════════════════════════════════════
+// HIERARCHY TREE
+// ═══════════════════════════════════════════════════
+S.hierarchySelection = [];
+
+function renderHierarchy(){
+  const tree = $('rp-tree');
+  if (!tree) return;
+  tree.innerHTML = '';
+
+  S.groups.forEach(g => {
+    const open = g._open ?? false;
+    const hdr = document.createElement('div');
+    hdr.className = 'h-node h-group-header';
+    const sel = S.hierarchySelection.some(s => s.type==='group' && s.id===g.id);
+    if (sel) hdr.classList.add('sel');
+    hdr.innerHTML = `<span class="h-arrow${open?' open':''}">▶</span><span class="h-icon">📁</span><span class="h-name">${g.label||'Group'}</span><span class="h-type">${(g.shapeIds.length+(g.deskObjIds?g.deskObjIds.length:0))} items</span>`;
+    // Arrow toggles expand/collapse
+    const arrow = hdr.querySelector('.h-arrow');
+    arrow.addEventListener('click', e => {
+      e.stopPropagation();
+      g._open = !g._open;
+      renderHierarchy();
+    });
+    // Click on header selects the group
+    hdr.addEventListener('click', e => {
+      e.stopPropagation();
+      if (e.ctrlKey || e.metaKey) {
+        toggleHierarchySelect('group', g.id);
+      } else {
+        S.hierarchySelection = [{type:'group', id:g.id}];
+        selectFromHierarchy('group', g.id);
+        renderHierarchy();
+      }
+    });
+    tree.appendChild(hdr);
+
+    const children = document.createElement('div');
+    children.className = 'h-group-children' + (open?' open':'');
+    g.shapeIds.forEach(sid => {
+      const s = S.shapes.find(sh => sh.id===sid);
+      if (!s) return;
+      const node = createHierarchyNode('shape', s.id, '◻️ '+ (s.type||'shape'), s.type);
+      if (S.hierarchySelection.some(sel => sel.type==='shape' && sel.id===s.id)) node.classList.add('sel');
+      children.appendChild(node);
+    });
+    tree.appendChild(children);
+  });
+
+  const groupedIds = new Set(S.groups.flatMap(g => g.shapeIds));
+  S.shapes.forEach(s => {
+    if (groupedIds.has(s.id)) return;
+    const node = createHierarchyNode('shape', s.id, '◻️ '+ (s.type||'shape'), s.type);
+    if (S.hierarchySelection.some(sel => sel.type==='shape' && sel.id===s.id)) node.classList.add('sel');
+    tree.appendChild(node);
+  });
+
+  S.deskObjects.forEach(o => {
+    const label = o.type==='dj_desk'?'🎛️ DJ Desk':'🎬 Movie Screen';
+    const node = createHierarchyNode('deskObject', o.id, label, o.type);
+    if (S.hierarchySelection.some(sel => sel.type==='deskObject' && sel.id===o.id)) node.classList.add('sel');
+    tree.appendChild(node);
+  });
+
+  S.portals.forEach((p, i) => {
+    const node = createHierarchyNode('portal', 'portal_'+i, '🚪 '+(p.label||'Portal'), 'portal');
+    if (S.hierarchySelection.some(sel => sel.type==='portal' && sel.id===('portal_'+i))) node.classList.add('sel');
+    tree.appendChild(node);
+  });
+
+  $('btn-group').disabled = S.hierarchySelection.length < 2;
+  $('btn-ungroup').disabled = !S.hierarchySelection.some(s => s.type==='group');
+}
+
+function createHierarchyNode(type, id, label, sub){
+  const node = document.createElement('div');
+  node.className = 'h-node';
+  node.innerHTML = `<span class="h-icon"></span><span class="h-name">${label}</span><span class="h-type">${sub||''}</span>`;
+  node.addEventListener('click', e => {
+    if (e.ctrlKey || e.metaKey) {
+      toggleHierarchySelect(type, id);
+    } else if (e.shiftKey) {
+      rangeHierarchySelect(type, id);
+    } else {
+      S.hierarchySelection = [{type, id}];
+      selectFromHierarchy(type, id);
+      renderHierarchy();
+    }
+  });
+  return node;
+}
+
+function toggleHierarchySelect(type, id){
+  const idx = S.hierarchySelection.findIndex(s => s.type===type && s.id===id);
+  if (idx >= 0) {
+    S.hierarchySelection.splice(idx, 1);
+  } else {
+    S.hierarchySelection.push({type, id});
+  }
+  if (S.hierarchySelection.length === 1) {
+    selectFromHierarchy(S.hierarchySelection[0].type, S.hierarchySelection[0].id);
+  }
+  renderHierarchy();
+}
+
+function rangeHierarchySelect(type, id){
+  if (S.hierarchySelection.length === 0) {
+    S.hierarchySelection = [{type, id}];
+    selectFromHierarchy(type, id);
+    renderHierarchy();
+    return;
+  }
+  toggleHierarchySelect(type, id);
+}
+
+function selectFromHierarchy(type, id){
+  if (type==='shape') {
+    selectShape(id);
+  } else if (type==='group') {
+    selectGroup(id);
+  } else if (type==='deskObject') {
+    selectDeskObject(id);
+  }
+  // selectShape/Group/DeskObject already handle scene rebuild + gizmo
+}
+
+// ═══════════════════════════════════════════════════
+// GROUP / UNGROUP
+// ═══════════════════════════════════════════════════
+function groupSelected(){
+  const shapeIds = [];
+  const deskObjIds = [];
+  S.hierarchySelection.forEach(s => {
+    if (s.type==='shape') shapeIds.push(s.id);
+    if (s.type==='deskObject') deskObjIds.push(s.id);
+  });
+  if (shapeIds.length + deskObjIds.length < 2) return;
+
+  const gid = 'group_' + String(S.groups.length + 1).padStart(3, '0');
+  let cx = 0, cy = Infinity, cz = 0, count = 0;
+  shapeIds.forEach(sid => {
+    const s = S.shapes.find(sh => sh.id===sid);
+    if (s) { cx += s.x; cy = Math.min(cy, s.y); cz += s.z; count++; s.group = gid; }
+  });
+  deskObjIds.forEach(oid => {
+    const o = S.deskObjects.find(d => d.id===oid);
+    if (o) { cx += o.x; cy = Math.min(cy, o.y); cz += o.z; count++; }
+  });
+  if (count === 0) return;
+  cx /= count; cz /= count;
+  // cy stays at minimum — keeps group pivot on the floor so scaling pushes upward
+
+  shapeIds.forEach(sid => {
+    const s = S.shapes.find(sh => sh.id===sid);
+    if (s) { s.x -= cx; s.y -= cy; s.z -= cz; }
+  });
+  deskObjIds.forEach(oid => {
+    const o = S.deskObjects.find(d => d.id===oid);
+    if (o) { o.x -= cx; o.y -= cy; o.z -= cz; }
+  });
+
+  S.groups.push({
+    id: gid, label: 'Group ' + (S.groups.length + 1),
+    shapeIds: [...shapeIds], deskObjIds: [...deskObjIds],
+    x: cx, y: cy, z: cz, rx: 0, ry: 0, rz: 0,
+    sx: 1, sy: 1, sz: 1, visible: true
+  });
+
+  S.hierarchySelection = [{type:'group', id:gid}];
+  S.selectedObject = S.groups[S.groups.length-1];
+  S.selectedType = 'group';
+  renderHierarchy();
+  renderShapeCards();
+  renderTransformControls();
+  attachGizmoToObject(S.selectedObject);
+  rb();
+}
+
+function ungroupSelected(){
+  const groupIds = S.hierarchySelection.filter(s => s.type==='group').map(s => s.id);
+  if (groupIds.length === 0) return;
+
+  groupIds.forEach(gid => {
+    const g = S.groups.find(gr => gr.id===gid);
+    if (!g) return;
+    // Build group world transform matrix
+    const gm = new THREE.Matrix4().compose(
+      new THREE.Vector3(g.x, g.y, g.z),
+      new THREE.Quaternion().setFromEuler(new THREE.Euler(g.rx, g.ry, g.rz)),
+      new THREE.Vector3(g.sx, g.sy, g.sz)
+    );
+    g.shapeIds.forEach(sid => {
+      const s = S.shapes.find(sh => sh.id===sid);
+      if (s) {
+        const wp = new THREE.Vector3(s.x, s.y, s.z).applyMatrix4(gm);
+        s.x = parseFloat(wp.x.toFixed(2)); s.y = parseFloat(wp.y.toFixed(2)); s.z = parseFloat(wp.z.toFixed(2));
+        s.group = null;
+      }
+    });
+    (g.deskObjIds||[]).forEach(oid => {
+      const o = S.deskObjects.find(d => d.id===oid);
+      if (o) {
+        const wp = new THREE.Vector3(o.x, o.y, o.z).applyMatrix4(gm);
+        o.x = parseFloat(wp.x.toFixed(2)); o.y = parseFloat(wp.y.toFixed(2)); o.z = parseFloat(wp.z.toFixed(2));
+      }
+    });
+    S.groups = S.groups.filter(gr => gr.id!==gid);
+  });
+
+  S.hierarchySelection = [];
+  S.selectedObject = null;
+  S.selectedType = null;
+  detachGizmo();
+  showSelectionIndicator(null);
+  renderHierarchy();
+  renderShapeCards();
+  renderTransformControls();
+  rb();
+}
+
+
 // ═══════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════
 rSky(); rLights(); rIcons(); rPortals(); rb(); resize(); bindStaticScrubs(); initTransformGizmo();
 document.querySelectorAll('.subtab[data-main="objects"]').forEach(t=>t.style.display='none');
+renderHierarchy();
 </script>
 </body>
 </html>
