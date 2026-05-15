@@ -2842,8 +2842,14 @@
     const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 500);
     camera.position.set(0, 1.7, 4);
     const clock = new THREE.Clock();
+    
+    let collisionPool = []; // Array to store solid objects for collision detection
 
     let yaw = 0, pitch = 0, isLocked = false;
+    let velocityY = 0; // Vertical velocity for jumping
+    const GRAVITY = 30; // Gravity acceleration (m/s²)
+    const JUMP_FORCE = 12; // Initial jump velocity (m/s)
+    const GROUND_Y = 1.7; // Ground level for camera
     let currentRoom = 'home', roomGroup = new THREE.Group(), allIcons = [], allPortals = [];
     let fsHandle = null, fsIcons = [];
     let dirStack = [];
@@ -3637,6 +3643,10 @@
       mesh.scale.set(shape.sx,shape.sy,shape.sz);
       mesh.castShadow=true;
       mesh.receiveShadow=true;
+      
+      // Add solid shapes to collision pool
+      if (shape.solid !== false) collisionPool.push(mesh);
+      
       return mesh;
     }
 
@@ -5799,7 +5809,15 @@
         if (custMode) { exitSpatialMode(); return; }
         closePreview(); closeNFTModal(); closeSteamModal(); closeURLDialog(); closeWebPanel(); unlockPointerNow();
       }
-      if (e.code === 'Space' && !$('preview').offsetParent && !$('nft-modal').offsetParent && !$('steam-modal').offsetParent && !$('url-dialog').offsetParent) { e.preventDefault(); GlobalPlayer.toggle(); }
+      if (e.code === 'Space' && !$('preview').offsetParent && !$('nft-modal').offsetParent && !$('steam-modal').offsetParent && !$('url-dialog').offsetParent) { 
+        if (isLocked) {
+          e.preventDefault();
+          return;
+        } else {
+          e.preventDefault(); 
+          GlobalPlayer.toggle();
+        }
+      }
     });
     document.addEventListener('keyup', e => keys[e.code] = false);
 
@@ -5855,16 +5873,56 @@
       // Movement - allowed even during walk-forge (carrying icon while walking)
       if (isLocked && !transitioning) {
         const fwd = getDir(yaw), right = getRight(yaw), spd = settings.speed;
-        if (keys['KeyW'] || keys['ArrowUp']) camera.position.addScaledVector(fwd, spd * dt);
-        if (keys['KeyS'] || keys['ArrowDown']) camera.position.addScaledVector(fwd, -spd * dt);
-        if (keys['KeyA'] || keys['ArrowLeft']) camera.position.addScaledVector(right, -spd * dt);
-        if (keys['KeyD'] || keys['ArrowRight']) camera.position.addScaledVector(right, spd * dt);
-        camera.position.y = 1.7;
+        
+        // Collision detection for horizontal movement
+        const raycaster = new THREE.Raycaster();
+        const COLLISION_DIST = 1.2;
+        
+        if (keys['KeyW'] || keys['ArrowUp']) {
+          raycaster.set(camera.position, fwd);
+          const hits = raycaster.intersectObjects(collisionPool, true);
+          if (!hits.some(h => h.distance < COLLISION_DIST)) camera.position.addScaledVector(fwd, spd * dt);
+        }
+        if (keys['KeyS'] || keys['ArrowDown']) {
+          raycaster.set(camera.position, fwd.clone().multiplyScalar(-1));
+          const hits = raycaster.intersectObjects(collisionPool, true);
+          if (!hits.some(h => h.distance < COLLISION_DIST)) camera.position.addScaledVector(fwd, -spd * dt);
+        }
+        if (keys['KeyA'] || keys['ArrowLeft']) {
+          raycaster.set(camera.position, right.clone().multiplyScalar(-1));
+          const hits = raycaster.intersectObjects(collisionPool, true);
+          if (!hits.some(h => h.distance < COLLISION_DIST)) camera.position.addScaledVector(right, -spd * dt);
+        }
+        if (keys['KeyD'] || keys['ArrowRight']) {
+          raycaster.set(camera.position, right);
+          const hits = raycaster.intersectObjects(collisionPool, true);
+          if (!hits.some(h => h.distance < COLLISION_DIST)) camera.position.addScaledVector(right, spd * dt);
+        }
+        
+        // Jump and gravity
+        const isGrounded = camera.position.y <= GROUND_Y + 0.01;
+        if (keys['Space'] && isGrounded) {
+          velocityY = JUMP_FORCE;
+          keys['Space'] = false;
+        }
+        
+        // Apply gravity
+        velocityY -= GRAVITY * dt;
+        camera.position.y += velocityY * dt;
+        
+        // Keep grounded
+        if (camera.position.y <= GROUND_Y) {
+          camera.position.y = GROUND_Y;
+          velocityY = 0;
+        }
+        
         // Clamp to room boundaries (dynamic based on room size)
         const R = ROOMS[currentRoom];
         if (R) {
           const half = (R.sz || 40) / 2 - 0.6;
-          camera.position.clamp(new THREE.Vector3(-half, 1.7, -half), new THREE.Vector3(half, 1.7, half));
+          const wallHeight = R.wallH || 14; // Get room height, default to 14
+          // Allow jumping up to near ceiling, but keep X/Z bounded
+          camera.position.clamp(new THREE.Vector3(-half, GROUND_Y, -half), new THREE.Vector3(half, wallHeight - 0.5, half));
         }
       }
       camera.quaternion.setFromEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
@@ -6359,6 +6417,7 @@
       const screenGlow = new THREE.PointLight(0x0044ff, 1.2, 4); screenGlow.position.set(0, 2.2, 0); screenGlow.userData.isAccentLight = true; djDeskGroup.add(screenGlow);
 
       staticHubGroup.add(djDeskGroup);
+      collisionPool.push(djDeskGroup);
       djDeskGroup.children.filter(c => c.userData.isDJ).forEach(c => c.userData.isStaticHub = true);
       allIcons.push(...djDeskGroup.children.filter(c => c.userData.isDJ));
       djUpdateWaveform();
@@ -6619,6 +6678,7 @@
 
       const glow2 = new THREE.PointLight(0x003388, 3.5, 12); glow2.position.set(0, H / 2 + 1.1, 1); glow2.userData.isAccentLight = true; movieScreenGroup.add(glow2);
       staticHubGroup.add(movieScreenGroup);
+      collisionPool.push(movieScreenGroup);
     }
 
     async function mvLoadFile() {
@@ -7169,17 +7229,51 @@
       // -- Left stick: walk movement (axes 0,1)
       const lx = Math.abs(axes[0]) > CTRL_DEAD ? axes[0] : 0;
       const ly = Math.abs(axes[1]) > CTRL_DEAD ? axes[1] : 0;
-      if ((lx || ly) && !desktopMode && !forgeDrag) {
-        const spd = settings.ctrlSpeed;
-        const fwd = getDir(yaw), right = getRight(yaw);
-        camera.position.addScaledVector(fwd, -ly * spd * dt);
-        camera.position.addScaledVector(right, lx * spd * dt);
-        camera.position.y = 1.7;
-        // Clamp to room boundaries (dynamic based on room size)
+      
+      // Apply gravity and jump in walk mode (continuously, not just when moving)
+      if (!desktopMode && !forgeDrag) {
+        if (lx || ly) {
+          const spd = settings.ctrlSpeed;
+          const fwd = getDir(yaw), right = getRight(yaw);
+          
+          // Collision detection for analog stick movement
+          const raycaster = new THREE.Raycaster();
+          const COLLISION_DIST = 1.2;
+          
+          if (ly !== 0) {
+            raycaster.set(camera.position, fwd.clone().multiplyScalar(-ly).normalize());
+            const hits = raycaster.intersectObjects(collisionPool, true);
+            if (!hits.some(h => h.distance < COLLISION_DIST)) camera.position.addScaledVector(fwd, -ly * spd * dt);
+          }
+          if (lx !== 0) {
+            raycaster.set(camera.position, right.clone().multiplyScalar(lx).normalize());
+            const hits = raycaster.intersectObjects(collisionPool, true);
+            if (!hits.some(h => h.distance < COLLISION_DIST)) camera.position.addScaledVector(right, lx * spd * dt);
+          }
+        }
+        
+        // Jump for gamepad (A/Cross button)
+        const isGrounded = camera.position.y <= GROUND_Y + 0.01;
+        if (btns[0] && btns[0].pressed && isGrounded) {
+          velocityY = JUMP_FORCE;
+        }
+        
+        // Apply gravity in gamepad mode
+        velocityY -= GRAVITY * dt;
+        camera.position.y += velocityY * dt;
+        
+        // Keep grounded
+        if (camera.position.y <= GROUND_Y) {
+          camera.position.y = GROUND_Y;
+          velocityY = 0;
+        }
+        
+        // Clamp to room boundaries (dynamic based on room size) - allow high Y for jumping
         const R = ROOMS[currentRoom];
         if (R) {
           const half = (R.sz || 40) / 2 - 0.6;
-          camera.position.clamp(new THREE.Vector3(-half, 1.7, -half), new THREE.Vector3(half, 1.7, half));
+          const wallHeight = R.wallH || 14;
+          camera.position.clamp(new THREE.Vector3(-half, GROUND_Y, -half), new THREE.Vector3(half, wallHeight - 0.5, half));
         }
       }
 

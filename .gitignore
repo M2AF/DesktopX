@@ -15,3 +15,5 @@ node_modules
 !.env.example
 my_room.json
 my_room.dxroom
+theatre.json
+theatre.dxroom
