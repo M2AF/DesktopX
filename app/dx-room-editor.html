@@ -9,49 +9,49 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
-  --bg:#070400;--panel:#0e0800;--border:rgba(255,128,0,.18);--bhi:rgba(255,148,0,.45);
-  --acc:#ff8800;--gold:#ffcc44;--tx:#ffd07a;--dim:rgba(255,185,80,.42);
-  --ibg:rgba(255,100,0,.07);--cbg:rgba(255,90,0,.05);
+  --bg:#020a03;--panel:#020a03;--border:#061207;--bhi:rgba(0,255,100,.45);
+  --acc:#00ff41;--gold:#adffbc;--tx:#4dff88;--dim:rgba(0,255,65,.42);
+  --ibg:#061207;--cbg:#061207;
   --fh:'Orbitron',monospace;--fm:'JetBrains Mono',monospace
 }
 body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:11px;
   display:flex;flex-direction:column;height:100vh;overflow:hidden;font-weight:300}
 
 /* ── HEADER ── */
-#hdr{height:46px;background:rgba(14,7,0,.98);border-bottom:1px solid var(--border);
+#hdr{height:46px;background:rgba(2,10,3,.98);border-bottom:1px solid var(--border);
   display:flex;align-items:center;padding:0 16px;gap:12px;flex-shrink:0;z-index:10}
 .logo{font-family:var(--fh);font-size:12px;font-weight:600;color:var(--acc);
   letter-spacing:.18em;white-space:nowrap}
 .hsep{width:1px;height:20px;background:var(--border)}
 .hf{display:flex;align-items:center;gap:6px}
 .hf label{color:var(--dim);font-size:9px;letter-spacing:.1em;white-space:nowrap}
-.hf input{background:var(--ibg);border:1px solid rgba(255,130,0,.25);color:var(--gold);
+.hf input{background:var(--ibg);border:1px solid rgba(0,255,70,.25);color:var(--gold);
   padding:4px 10px;border-radius:4px;font-family:var(--fm);font-size:11px;transition:border-color .15s}
 .hf input:focus{outline:none;border-color:var(--acc)}
 .hf input.ni{width:150px}.hf input.ii{color:var(--dim);width:120px}
 .sp{flex:1}
 .pw{position:relative}
-#pbtn{background:rgba(255,130,0,.1);border:1px solid var(--border);color:var(--dim);
+#pbtn{background:rgba(0,255,70,.1);border:1px solid var(--border);color:var(--dim);
   padding:5px 12px;border-radius:4px;cursor:pointer;font-family:var(--fm);font-size:10px;
   letter-spacing:.06em;transition:all .13s}
 #pbtn:hover{border-color:var(--bhi);color:var(--tx)}
 #pmenu{display:none;position:absolute;top:100%;right:0;margin-top:4px;
-  background:rgba(14,7,0,.98);border:1px solid var(--bhi);border-radius:6px;
+  background:rgba(2,10,3,.98);border:1px solid var(--bhi);border-radius:6px;
   min-width:165px;z-index:100;overflow:hidden}
 #pmenu.open{display:block}
 #pmenu button{display:block;width:100%;background:none;border:none;
-  border-bottom:1px solid rgba(255,130,0,.1);color:var(--tx);padding:8px 14px;
+  border-bottom:1px solid rgba(0,255,70,.1);color:var(--tx);padding:8px 14px;
   text-align:left;cursor:pointer;font-family:var(--fm);font-size:10px;transition:all .1s}
 #pmenu button:last-child{border-bottom:none}
-#pmenu button:hover{background:rgba(255,130,0,.12);color:var(--gold)}
-#expbtn{background:rgba(255,120,0,.18);border:1px solid rgba(255,140,0,.5);
-  color:var(--gold);padding:6px 16px;border-radius:5px;cursor:pointer;
+#pmenu button:hover{background:rgba(0,255,70,.12);color:var(--gold)}
+#expbtn{background:rgba(255,0,51,.15);border:1px solid rgba(255,0,51,.5);
+  color:#ff4466;padding:6px 16px;border-radius:5px;cursor:pointer;
   font-family:var(--fh);font-size:10px;letter-spacing:.1em;transition:all .15s;white-space:nowrap}
-#expbtn:hover{background:rgba(255,140,0,.3);box-shadow:0 0 14px rgba(255,140,0,.25)}
-#impbtn{background:rgba(0,180,120,.12);border:1px solid rgba(0,200,140,.35);
-  color:#44ffbb;padding:6px 16px;border-radius:5px;cursor:pointer;
+#expbtn:hover{background:rgba(255,0,51,.28);box-shadow:0 0 14px rgba(255,0,51,.35)}
+#impbtn{background:rgba(0,68,255,.15);border:1px solid rgba(0,102,255,.5);
+  color:#4d8fff;padding:6px 16px;border-radius:5px;cursor:pointer;
   font-family:var(--fh);font-size:10px;letter-spacing:.1em;transition:all .15s;white-space:nowrap}
-#impbtn:hover{background:rgba(0,200,140,.22);box-shadow:0 0 14px rgba(0,200,140,.2)}
+#impbtn:hover{background:rgba(0,102,255,.28);box-shadow:0 0 14px rgba(0,102,255,.35)}
 
 /* ── MAIN ── */
 #main{flex:1;display:flex;overflow:hidden}
@@ -68,7 +68,7 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:11px;
 #sb-toggle:hover{color:var(--gold);border-color:var(--bhi)}
 #sb.collapsed #sb-toggle{right:-20px;border-left:1px solid var(--border);border-radius:5px}
 #sb-resize{position:absolute;right:0;top:0;bottom:0;width:5px;cursor:ew-resize;z-index:19;transition:background .15s}
-#sb-resize:hover,#sb-resize.active{background:rgba(255,130,0,.25)}
+#sb-resize:hover,#sb-resize.active{background:rgba(0,255,70,.25)}
 #sb.collapsed #sb-resize{display:none}
 #tabs{flex-shrink:0;border-bottom:1px solid var(--border)}
 #maintabs{display:flex}
@@ -76,44 +76,44 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:11px;
   letter-spacing:.14em;cursor:pointer;border-bottom:2px solid transparent;
   transition:all .14s;font-family:var(--fh);user-select:none}
 .maintab:hover{color:var(--tx)}.maintab.on{color:var(--acc);border-bottom-color:var(--acc)}
-#subtabs{display:flex;background:rgba(255,130,0,.04)}
+#subtabs{display:flex;background:rgba(0,255,70,.04)}
 .subtab{flex:1;padding:6px 2px;text-align:center;color:var(--dim);font-size:7.5px;
   letter-spacing:.08em;cursor:pointer;border-bottom:2px solid transparent;
   transition:all .14s;font-family:var(--fh);user-select:none}
 .subtab:hover{color:var(--tx)}.subtab.on{color:var(--gold);border-bottom-color:var(--gold)}
 #panels{flex:1;overflow-y:auto;padding:14px 12px;scroll-behavior:smooth}
 #panels::-webkit-scrollbar{width:3px}
-#panels::-webkit-scrollbar-thumb{background:rgba(255,130,0,.2);border-radius:2px}
+#panels::-webkit-scrollbar-thumb{background:rgba(0,255,70,.2);border-radius:2px}
 .panel{display:none}.panel.on{display:block}
 
 /* ── FORM ── */
 .sec{font-family:var(--fh);font-size:8px;letter-spacing:.2em;color:var(--acc);
-  margin:16px 0 8px;padding-bottom:4px;border-bottom:1px solid rgba(255,130,0,.12)}
+  margin:16px 0 8px;padding-bottom:4px;border-bottom:1px solid rgba(0,255,70,.12)}
 .sec:first-child{margin-top:0}
 .f{margin-bottom:9px}
 .f>label{display:block;color:var(--dim);font-size:9px;letter-spacing:.05em;margin-bottom:4px}
 .f input[type=text],.f input[type=number],.f select{width:100%;background:var(--ibg);
-  border:1px solid rgba(255,130,0,.2);color:var(--tx);padding:5px 8px;border-radius:4px;
+  border:1px solid rgba(0,255,70,.2);color:var(--tx);padding:5px 8px;border-radius:4px;
   font-family:var(--fm);font-size:11px;transition:border-color .12s}
 .f input:focus,.f select:focus{outline:none;border-color:rgba(255,140,0,.5)}
 .f select option{background:#120900}
 .f input[type=range]{width:100%;accent-color:var(--acc);cursor:pointer}
 
 /* ── SCRUBBERS (Hybrid: Drag + Manual Input) ── */
-.scrub{display:flex;align-items:center;background:linear-gradient(135deg,rgba(255,130,0,.06),rgba(255,100,0,.03));
-  border:1px solid rgba(255,130,0,.18);border-radius:5px;height:28px;cursor:ew-resize;user-select:none;
+.scrub{display:flex;align-items:center;background:linear-gradient(135deg,rgba(0,255,70,.06),rgba(0,255,50,.03));
+  border:1px solid rgba(0,255,70,.18);border-radius:5px;height:28px;cursor:ew-resize;user-select:none;
   position:relative;overflow:hidden;margin-bottom:9px;transition:all .12s ease;box-shadow:inset 0 1px 2px rgba(0,0,0,.2)}
-.scrub:hover{border-color:rgba(255,130,0,.32);background:linear-gradient(135deg,rgba(255,130,0,.09),rgba(255,100,0,.05))}
-.scrub.dragging{border-color:var(--acc);background:linear-gradient(135deg,rgba(255,130,0,.15),rgba(255,100,0,.08));
-  box-shadow:inset 0 0 8px rgba(255,130,0,.15),0 0 12px rgba(255,130,0,.12)}
+.scrub:hover{border-color:rgba(0,255,70,.32);background:linear-gradient(135deg,rgba(0,255,70,.09),rgba(0,255,50,.05))}
+.scrub.dragging{border-color:var(--acc);background:linear-gradient(135deg,rgba(0,255,70,.15),rgba(0,255,50,.08));
+  box-shadow:inset 0 0 8px rgba(0,255,70,.15),0 0 12px rgba(0,255,70,.12)}
 .scrub.focus-mode{border-color:rgba(255,200,0,.35);cursor:text}
-.scrub-fill{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,rgba(255,130,0,.18),rgba(255,130,0,.06));
+.scrub-fill{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,rgba(0,255,70,.18),rgba(0,255,70,.06));
   pointer-events:none;transition:width .15s ease;box-shadow:inset -1px 0 4px rgba(0,0,0,.15);border-radius:5px 0 0 5px}
 .scrub-thumb{position:absolute;top:2px;bottom:2px;width:6px;background:var(--gold);border-radius:3px;
   pointer-events:none;transition:left .15s ease;box-shadow:0 0 6px rgba(255,200,0,.4),0 0 2px rgba(255,200,0,.6);z-index:1;
   transform:translateX(-50%)}
 .scrub-lbl{padding:0 8px 0 9px;font-size:9px;letter-spacing:.06em;color:var(--dim);
-  white-space:nowrap;flex-shrink:0;border-right:1px solid rgba(255,130,0,.12);line-height:28px;font-weight:400;
+  white-space:nowrap;flex-shrink:0;border-right:1px solid rgba(0,255,70,.12);line-height:28px;font-weight:400;
   transition:color .12s ease;text-transform:uppercase;z-index:2;position:relative}
 .scrub.dragging .scrub-lbl{color:var(--gold)}
 .scrub-inp{flex:1;background:transparent;border:none;color:var(--acc);font-family:var(--fm);
@@ -127,26 +127,26 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:11px;
 .r3>div>label{font-size:8.5px;display:block;color:var(--dim);margin-bottom:3px}
 .val{float:right;color:var(--gold);font-size:9px;font-family:var(--fm)}
 .cr{display:flex;align-items:center;gap:8px}
-.cr input[type=color]{width:34px;height:28px;border:1px solid rgba(255,130,0,.3);
+.cr input[type=color]{width:34px;height:28px;border:1px solid rgba(0,255,70,.3);
   border-radius:4px;cursor:pointer;background:none;padding:2px;flex-shrink:0}
 .cv{font-family:var(--fm);font-size:10px;color:var(--dim)}
-.div{height:1px;background:rgba(255,130,0,.08);margin:12px 0}
+.div{height:1px;background:rgba(0,255,70,.08);margin:12px 0}
 .cbx{display:flex;align-items:center;gap:8px;cursor:pointer}
 .cbx input{accent-color:var(--acc);width:13px;height:13px;cursor:pointer;flex-shrink:0}
 .cbx span{color:var(--tx);font-size:10px}
 
 /* ── CARDS ── */
-.card{background:var(--cbg);border:1px solid rgba(255,130,0,.13);
+.card{background:var(--cbg);border:1px solid rgba(0,255,70,.13);
   border-radius:6px;padding:10px 10px 8px;margin-bottom:7px}
 .ch{display:flex;justify-content:space-between;align-items:center;
   margin-bottom:8px;font-family:var(--fh);font-size:8px;letter-spacing:.12em;color:var(--gold)}
 .del{background:rgba(255,40,0,.12);border:1px solid rgba(255,60,0,.3);
   color:#ff6644;padding:1px 7px;border-radius:3px;cursor:pointer;font-size:10px;line-height:1.4}
 .del:hover{background:rgba(255,60,0,.25)}
-.abtn{width:100%;background:none;border:1px dashed rgba(255,130,0,.22);
+.abtn{width:100%;background:none;border:1px dashed rgba(0,255,70,.22);
   color:var(--dim);padding:7px;border-radius:4px;cursor:pointer;
   font-family:var(--fm);font-size:10px;text-align:center;transition:all .12s;margin-top:2px}
-.abtn:hover{background:rgba(255,130,0,.12);color:var(--tx);border-color:rgba(255,130,0,.45)}
+.abtn:hover{background:rgba(0,255,70,.12);color:var(--tx);border-color:rgba(0,255,70,.45)}
 
 /* ── PREVIEW ── */
 #pv{flex:1;position:relative;overflow:hidden;background:#000}
@@ -157,11 +157,11 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:11px;
 #pvlbl{position:absolute;top:10px;left:10px;font-family:var(--fh);font-size:9px;
   letter-spacing:.14em;color:rgba(255,140,0,.38);pointer-events:none}
 #gizmo-btns{position:absolute;top:8px;left:120px;display:flex;gap:4px;z-index:10}
-.gizmo-btn{background:rgba(14,7,0,.85);border:1px solid rgba(255,130,0,.2);color:var(--dim);
+.gizmo-btn{background:rgba(2,10,3,.85);border:1px solid rgba(0,255,70,.2);color:var(--dim);
   padding:3px 10px;border-radius:3px;cursor:pointer;font-family:var(--fh);font-size:8px;
   letter-spacing:.08em;transition:all .12s}
 .gizmo-btn:hover{color:var(--tx);border-color:var(--bhi)}
-.gizmo-btn.on{color:var(--acc);border-color:var(--acc);background:rgba(255,130,0,.12)}
+.gizmo-btn.on{color:var(--acc);border-color:var(--acc);background:rgba(0,255,70,.12)}
 #pvhint{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);
   color:rgba(255,140,0,.22);font-size:9px;letter-spacing:.07em;pointer-events:none;white-space:nowrap}
 #pvinfo{position:absolute;top:10px;right:12px;font-family:var(--fh);font-size:8px;
@@ -172,7 +172,7 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:11px;
 /* ── FACE-DRAG OVERLAY ── */
 #fd-overlay{
   position:absolute;bottom:34px;right:12px;
-  background:rgba(6,3,0,.88);border:1px solid rgba(255,130,0,.28);
+  background:rgba(2,10,3,.88);border:1px solid rgba(0,255,70,.28);
   border-radius:5px;padding:7px 13px;font-family:var(--fm);font-size:10px;
   pointer-events:none;display:none;line-height:1.75;
   backdrop-filter:blur(6px);min-width:160px;
@@ -182,7 +182,7 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:11px;
 #fd-overlay .fd-val{color:var(--gold);font-weight:500}
 #fd-overlay .fd-delta{font-size:9px;opacity:.55;margin-left:4px}
 #fd-overlay .fd-hint{font-size:8.5px;color:var(--dim);margin-top:4px;
-  border-top:1px solid rgba(255,130,0,.1);padding-top:4px}
+  border-top:1px solid rgba(0,255,70,.1);padding-top:4px}
 #orient{position:absolute;bottom:14px;left:14px;width:80px;height:80px;pointer-events:none;z-index:10;
   border-radius:50%;background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.08)}
 
@@ -198,27 +198,27 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:11px;
 #rp-toggle:hover{color:var(--gold);border-color:var(--bhi)}
 #rp.collapsed #rp-toggle{left:-20px;border-right:1px solid var(--border);border-radius:5px}
 #rp-resize{position:absolute;left:0;top:0;bottom:0;width:5px;cursor:ew-resize;z-index:19;transition:background .15s}
-#rp-resize:hover,#rp-resize.active{background:rgba(255,130,0,.25)}
+#rp-resize:hover,#rp-resize.active{background:rgba(0,255,70,.25)}
 #rp.collapsed #rp-resize{display:none}
 #rp-content{flex:1;display:flex;flex-direction:column;overflow:hidden}
 #rp-hdr{font-family:var(--fh);font-size:9px;letter-spacing:.16em;color:var(--acc);padding:12px 14px 8px;
   border-bottom:1px solid var(--border);flex-shrink:0}
 #rp-tree{overflow-y:auto;padding:6px 0;scroll-behavior:smooth;max-height:50%}
 #rp-tree::-webkit-scrollbar{width:3px}
-#rp-tree::-webkit-scrollbar-thumb{background:rgba(255,130,0,.2);border-radius:2px}
+#rp-tree::-webkit-scrollbar-thumb{background:rgba(0,255,70,.2);border-radius:2px}
 #rp-data{flex-shrink:0;padding:12px 14px;border-top:1px solid var(--border);overflow-y:auto}
 #rp-data::-webkit-scrollbar{width:3px}
-#rp-data::-webkit-scrollbar-thumb{background:rgba(255,130,0,.2);border-radius:2px}
+#rp-data::-webkit-scrollbar-thumb{background:rgba(0,255,70,.2);border-radius:2px}
 #rp-actions{flex-shrink:0;padding:8px 10px;border-top:1px solid var(--border);display:flex;gap:6px}
-#rp-actions button{flex:1;background:rgba(255,130,0,.1);border:1px solid var(--border);color:var(--dim);
+#rp-actions button{flex:1;background:rgba(0,255,70,.1);border:1px solid var(--border);color:var(--dim);
   padding:6px 4px;border-radius:4px;cursor:pointer;font-family:var(--fm);font-size:9px;
   letter-spacing:.04em;transition:all .12s}
-#rp-actions button:hover{background:rgba(255,130,0,.2);color:var(--tx);border-color:var(--bhi)}
+#rp-actions button:hover{background:rgba(0,255,70,.2);color:var(--tx);border-color:var(--bhi)}
 #rp-actions button:disabled{opacity:.3;cursor:not-allowed;pointer-events:none}
 .h-node{display:flex;align-items:center;gap:6px;padding:5px 14px;cursor:pointer;font-size:10px;
   color:var(--tx);transition:background .1s;user-select:none;border-left:2px solid transparent}
-.h-node:hover{background:rgba(255,130,0,.08)}
-.h-node.sel{background:rgba(255,130,0,.15);border-left-color:var(--acc);color:var(--gold)}
+.h-node:hover{background:rgba(0,255,70,.08)}
+.h-node.sel{background:rgba(0,255,70,.15);border-left-color:var(--acc);color:var(--gold)}
 .h-node .h-icon{width:14px;text-align:center;flex-shrink:0;font-size:10px}
 .h-node .h-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .h-node .h-type{font-size:8px;color:var(--dim);flex-shrink:0}
@@ -348,12 +348,12 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:11px;
       <div class="panel" id="p-shapes">
         <div class="sec">ADD SHAPE</div>
         <div style="position:relative;width:100%;margin-bottom:12px">
-          <button id="shape-add-btn" onclick="showShapeMenu()" style="width:100%;background:rgba(255,130,0,.15);border:1px dashed rgba(255,130,0,.35);color:var(--tx);padding:7px;border-radius:4px;cursor:pointer;font-size:10px;font-family:var(--fm)">➕ Add Shape ▾</button>
-          <div id="shape-menu" style="display:none;position:absolute;top:100%;left:0;right:0;background:rgba(14,7,0,.98);border:1px solid var(--bhi);border-radius:4px;margin-top:4px;z-index:100">
-            <button onclick="createShape('cube')" style="width:100%;text-align:left;padding:8px 12px;border:none;background:none;border-bottom:1px solid rgba(255,130,0,.1);color:var(--tx);cursor:pointer;font-family:var(--fm);font-size:10px">◻️ Cube</button>
-            <button onclick="createShape('sphere')" style="width:100%;text-align:left;padding:8px 12px;border:none;background:none;border-bottom:1px solid rgba(255,130,0,.1);color:var(--tx);cursor:pointer;font-family:var(--fm);font-size:10px">🔮 Sphere</button>
-            <button onclick="createShape('cylinder')" style="width:100%;text-align:left;padding:8px 12px;border:none;background:none;border-bottom:1px solid rgba(255,130,0,.1);color:var(--tx);cursor:pointer;font-family:var(--fm);font-size:10px">⚙️ Cylinder</button>
-            <button onclick="createShape('torus')" style="width:100%;text-align:left;padding:8px 12px;border:none;background:none;border-bottom:1px solid rgba(255,130,0,.1);color:var(--tx);cursor:pointer;font-family:var(--fm);font-size:10px">⭕ Torus</button>
+          <button id="shape-add-btn" onclick="showShapeMenu()" style="width:100%;background:rgba(0,255,70,.15);border:1px dashed rgba(0,255,70,.35);color:var(--tx);padding:7px;border-radius:4px;cursor:pointer;font-size:10px;font-family:var(--fm)">➕ Add Shape ▾</button>
+          <div id="shape-menu" style="display:none;position:absolute;top:100%;left:0;right:0;background:rgba(2,10,3,.98);border:1px solid var(--bhi);border-radius:4px;margin-top:4px;z-index:100">
+            <button onclick="createShape('cube')" style="width:100%;text-align:left;padding:8px 12px;border:none;background:none;border-bottom:1px solid rgba(0,255,70,.1);color:var(--tx);cursor:pointer;font-family:var(--fm);font-size:10px">◻️ Cube</button>
+            <button onclick="createShape('sphere')" style="width:100%;text-align:left;padding:8px 12px;border:none;background:none;border-bottom:1px solid rgba(0,255,70,.1);color:var(--tx);cursor:pointer;font-family:var(--fm);font-size:10px">🔮 Sphere</button>
+            <button onclick="createShape('cylinder')" style="width:100%;text-align:left;padding:8px 12px;border:none;background:none;border-bottom:1px solid rgba(0,255,70,.1);color:var(--tx);cursor:pointer;font-family:var(--fm);font-size:10px">⚙️ Cylinder</button>
+            <button onclick="createShape('torus')" style="width:100%;text-align:left;padding:8px 12px;border:none;background:none;border-bottom:1px solid rgba(0,255,70,.1);color:var(--tx);cursor:pointer;font-family:var(--fm);font-size:10px">⭕ Torus</button>
             <button onclick="createShape('plane')" style="width:100%;text-align:left;padding:8px 12px;border:none;background:none;color:var(--tx);cursor:pointer;font-family:var(--fm);font-size:10px">◼️ Plane</button>
           </div>
         </div>
@@ -1067,7 +1067,7 @@ function showShapeMenu(){$('shape-menu').style.display=$('shape-menu').style.dis
 
 function createShape(type){
   const id=`shape_${String(S.shapes.length+1).padStart(3,'0')}`;
-  S.shapes.push({id,type,color:'#ff8800',roughness:0.5,metalness:0,emissiveColor:'#000000',emissiveIntensity:0,x:0,y:0,z:0,rx:0,ry:0,rz:0,sx:1,sy:1,sz:1,group:null});
+  S.shapes.push({id,type,color:'#00ff41',roughness:0.5,metalness:0,emissiveColor:'#000000',emissiveIntensity:0,x:0,y:0,z:0,rx:0,ry:0,rz:0,sx:1,sy:1,sz:1,group:null});
   $('shape-menu').style.display='none';
   selectShape(id);
 }
@@ -1223,7 +1223,7 @@ function renderShapeCards(){
   S.shapes.forEach(shape=>{
     const card=document.createElement('div');
     card.className='card';
-    if(S.selectedObject?.id===shape.id)card.style.background='rgba(255,130,0,.25)';
+    if(S.selectedObject?.id===shape.id)card.style.background='rgba(0,255,70,.25)';
     card.innerHTML=`<div class="ch"><span>${shape.type.charAt(0).toUpperCase()+shape.type.slice(1)} #${shape.id.split('_')[1]}</span><button class="del" onclick="deleteShape('${shape.id}')">✕</button></div>
 <label style="color:var(--dim);font-size:8px;letter-spacing:.08em;display:block;margin-bottom:3px">COLOR</label>
 	<div class="cr"><input type="color" value="${shape.color}" onchange="updateShapeProperty('${shape.id}','color',this.value);cs(this)"><span class="cv">${shape.color}</span></div>
@@ -1239,7 +1239,7 @@ function renderShapeCards(){
   S.deskObjects.forEach(obj=>{
     const card=document.createElement('div');
     card.className='card';
-    if(S.selectedObject?.id===obj.id)card.style.background='rgba(255,130,0,.25)';
+    if(S.selectedObject?.id===obj.id)card.style.background='rgba(0,255,70,.25)';
     const label=obj.type==='dj_desk'?'🎛️ DJ Desk':'🎬 Movie Screen';
     card.innerHTML=`<div class="ch"><span>${label} #${obj.id.split('_')[1]}</span><button class="del" onclick="deleteDeskObject('${obj.id}')">✕</button></div>`;
     card.onclick=()=>selectDeskObject(obj.id);
@@ -1587,7 +1587,7 @@ function initTransformGizmo() {
         // Rebuild scene from synced state so everything is consistent,
         // then re-attach the gizmo to the freshly created mesh.
         rb();
-        const colors = {translate:'#ffcc44', rotate:'#ffaa44', scale:'#ff8844'};
+        const colors = {translate:'#00ff41', rotate:'#00cc33', scale:'#66ff99'};
         const labels = {translate:'T', rotate:'R', scale:'S'};
         $('gizmo-mode').innerHTML = `<span style="color:${colors[currentGizmoMode]}">${labels[currentGizmoMode]}</span>`;
       }
@@ -1642,7 +1642,7 @@ function attachGizmoToObject(obj) {
     transformControls.size = 1.2;
     transformControls.attach(targetMesh);
     transformControls.setMode(currentGizmoMode);
-    const colors = {translate:'#ffcc44', rotate:'#ffaa44', scale:'#ff8844'};
+    const colors = {translate:'#00ff41', rotate:'#00cc33', scale:'#66ff99'};
     const labels = {translate:'T', rotate:'R', scale:'S'};
     $('gizmo-mode').innerHTML = `<span style="color:${colors[currentGizmoMode]}">${labels[currentGizmoMode]}</span>`;
   }
@@ -1663,7 +1663,7 @@ function setGizmoMode(mode) {
 
   if (mode === 'facedrag') {
     if (transformControls && transformControls.object) transformControls.detach();
-    $('gizmo-mode').innerHTML = `<span style="color:#ff8844">FACE-DRAG</span>`;
+    $('gizmo-mode').innerHTML = `<span style="color:#00ff41">FACE-DRAG</span>`;
     // Build handles for the selected shape, if any
     if (S.selectedObject && S.selectedType === 'shape') buildFaceHandles(S.selectedObject);
     return;
@@ -1678,7 +1678,7 @@ function setGizmoMode(mode) {
     attachGizmoToObject(S.selectedObject);
   }
   transformControls.setMode(mode);
-  const colors = {translate:'#ffcc44', rotate:'#ffaa44', scale:'#ff8844'};
+  const colors = {translate:'#00ff41', rotate:'#00cc33', scale:'#66ff99'};
   const labels = {translate:'T', rotate:'R', scale:'S'};
   $('gizmo-mode').innerHTML = `<span style="color:${colors[mode]}">${labels[mode]}</span>`;
 }
