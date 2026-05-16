@@ -2615,8 +2615,8 @@
     <h2>Settings</h2>
     <div class="setting"><label>FOV <span class="val" id="fov-val">75</span></label><input type="range" min="50"
         max="110" value="75" oninput="applySetting('fov',this.value)"></div>
-    <div class="setting"><label>Move Speed <span class="val" id="spd-val">4</span></label><input type="range" min="1"
-        max="12" value="4" oninput="applySetting('speed',this.value)"></div>
+    <div class="setting"><label>Move Speed <span class="val" id="spd-val">8</span></label><input type="range" min="1"
+        max="12" value="8" oninput="applySetting('speed',this.value)"></div>
     <div class="setting"><label>Mouse Sensitivity <span class="val" id="sen-val">0.3</span></label><input type="range"
         min="1" max="10" value="3" oninput="applySetting('sensitivity',this.value)"></div>
     <div class="setting" style="border-top:1px solid rgba(0,100,200,0.15);padding-top:10px;margin-top:4px"><label
@@ -2815,6 +2815,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/omggif@1.0.10/omggif.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/lights/RectAreaLightUniformsLib.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/fflate.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
@@ -2832,18 +2833,22 @@
     // ===============================================================
     const $ = id => document.getElementById(id);
     const canvas = $('c');
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     renderer.setSize(innerWidth, innerHeight);
-    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.enabled = false;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.0;
+    if (THREE.RectAreaLightUniformsLib) THREE.RectAreaLightUniformsLib.init();
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 500);
     camera.position.set(0, 1.7, 4);
     const clock = new THREE.Clock();
     
     let collisionPool = []; // Array to store solid objects for collision detection
+    const ROOM_POINT_LIGHT_RENDER_LIMIT = 8;
+    const ROOM_DIR_LIGHT_RENDER_LIMIT = 2;
+    const ROOM_RECT_LIGHT_RENDER_LIMIT = 4;
 
     let yaw = 0, pitch = 0, isLocked = false;
     let velocityY = 0; // Vertical velocity for jumping
@@ -3459,7 +3464,10 @@
         iconWall: 'front',
         shapes: [],
         groups: [],
-        deskObjects: []
+        deskObjects: [
+          { id: 'dj_desk_home', type: 'dj_desk', x: 18.8, y: -0.55, z: 0, rx: 0, ry: -Math.PI/2, rz: 0, sx: 1, sy: 1, sz: 1, visible: true },
+          { id: 'movie_screen_home', type: 'movie_screen', x: -18.8, y: 0, z: 0, rx: 0, ry: Math.PI/2, rz: 0, sx: 1, sy: 1, sz: 1, visible: true }
+        ]
       }
     };
 
@@ -3469,9 +3477,61 @@
     let CUSTOM_ROOMS = {};  // { roomId: roomDef } — mirrors what's in ROOMS
     let modsPanelOpen = false;
 
+    function roomNum(value, fallback) {
+      const n = Number(value);
+      return Number.isFinite(n) ? n : fallback;
+    }
+
+    function composeRoomTransform(item) {
+      return new THREE.Matrix4().compose(
+        new THREE.Vector3(roomNum(item.x, 0), roomNum(item.y, 0), roomNum(item.z, 0)),
+        new THREE.Quaternion().setFromEuler(new THREE.Euler(roomNum(item.rx, 0), roomNum(item.ry, 0), roomNum(item.rz, 0))),
+        new THREE.Vector3(roomNum(item.sx, 1), roomNum(item.sy, 1), roomNum(item.sz, 1))
+      );
+    }
+
+    function applyRoomTransform(item, matrix) {
+      const pos = new THREE.Vector3();
+      const quat = new THREE.Quaternion();
+      const scale = new THREE.Vector3();
+      matrix.decompose(pos, quat, scale);
+      const rot = new THREE.Euler().setFromQuaternion(quat);
+      return {
+        ...item,
+        x: pos.x, y: pos.y, z: pos.z,
+        rx: rot.x, ry: rot.y, rz: rot.z,
+        sx: scale.x, sy: scale.y, sz: scale.z,
+        group: null
+      };
+    }
+
+    function bakeGroupedRoomTransforms(roomDef) {
+      const groups = Array.isArray(roomDef.groups) ? roomDef.groups : [];
+      if (!groups.length) return roomDef;
+
+      const groupById = new Map(groups.map(g => [g.id, g]));
+      const shapeGroup = new Map();
+      const deskGroup = new Map();
+      groups.forEach(g => {
+        (g.shapeIds || []).forEach(id => shapeGroup.set(id, g));
+        (g.deskObjIds || []).forEach(id => deskGroup.set(id, g));
+      });
+
+      const bake = (item, ownerMap) => {
+        const group = ownerMap.get(item.id) || (item.group ? groupById.get(item.group) : null);
+        if (!group) return item;
+        return applyRoomTransform(item, composeRoomTransform(group).multiply(composeRoomTransform(item)));
+      };
+
+      roomDef.shapes = (roomDef.shapes || []).map(shape => bake(shape, shapeGroup));
+      roomDef.deskObjects = (roomDef.deskObjects || []).map(obj => bake(obj, deskGroup));
+      roomDef.groups = [];
+      return roomDef;
+    }
+
     /** Normalise a raw .dxroom export into the shape buildRoom() expects */
     function buildRoomDefFromMod(def) {
-      return {
+      return bakeGroupedRoomTransforms({
         name:       def.name       || 'Custom Room',
         sz:         def.sz         || 40,
         wallH:      def.wallH      || 14,
@@ -3481,6 +3541,8 @@
         stars:      def.stars      !== false,
         ambient:    def.ambient    || [0x001028, 0.6],
         lights:     def.lights     || [],
+        dirLights:  def.dirLights  || [],
+        rectLights: def.rectLights || [],
         floor:      def.floor      || [0x050520, 0x010110],
         wall:       def.wall       || [0x060830, 0x020215],
         grid:       def.grid       ?? 0x001844,
@@ -3492,7 +3554,7 @@
         shapes:     def.shapes     || [],
         groups:     def.groups     || [],
         deskObjects: def.deskObjects || []
-      };
+      });
     }
 
     /** Import a .dxroom file chosen by the user */
@@ -3525,6 +3587,8 @@
           await DB.set('home_room_custom', JSON.stringify(def));
           showToast('⬡ Home room updated');
           goRoom('home');
+          // Export immediately so save.json includes the new custom home
+          await exportLayoutFile();
         } else {
           CUSTOM_ROOMS[roomId] = def;
           ROOMS[roomId]        = roomDef;
@@ -3620,12 +3684,51 @@
     function createShapeFromData(shape) {
       let geometry;
       switch(shape.type.toLowerCase()){
-        case'cube':geometry=new THREE.BoxGeometry(1,1,1);break;
-        case'sphere':geometry=new THREE.SphereGeometry(0.5,32,32);break;
-        case'cylinder':geometry=new THREE.CylinderGeometry(0.5,0.5,1,32);break;
-        case'torus':geometry=new THREE.TorusGeometry(0.5,0.2,16,100);break;
-        case'plane':geometry=new THREE.PlaneGeometry(1,1);break;
-        default:geometry=new THREE.BoxGeometry(1,1,1);
+        case'cube':
+          geometry=new THREE.BoxGeometry(1,1,1);
+          geometry.translate(0,0.5,0); // bottom-pivot: matches editor
+          break;
+        case'sphere':
+          geometry=new THREE.SphereGeometry(0.5,32,32);
+          geometry.translate(0,0.5,0);
+          break;
+        case'cylinder':
+          geometry=new THREE.CylinderGeometry(0.5,0.5,1,32);
+          geometry.translate(0,0.5,0);
+          break;
+        case'torus':
+          geometry=new THREE.TorusGeometry(0.5,0.2,16,100);
+          geometry.translate(0,0.2,0);
+          break;
+        case'plane':
+          geometry=new THREE.PlaneGeometry(1,1);
+          geometry.translate(0,0.5,0);
+          break;
+        case'wedge': {
+          // Identical geometry to the editor — non-indexed, correct winding per face
+          const verts = new Float32Array([
+            // Bottom (0,-1,0)
+            -0.5,0,-0.5,  0.5,0,-0.5,  -0.5,0, 0.5,
+             0.5,0,-0.5,  0.5,0, 0.5,  -0.5,0, 0.5,
+            // Back wall (0,0,+1)
+            -0.5,0, 0.5,  0.5,0, 0.5,  -0.5,1, 0.5,
+             0.5,0, 0.5,  0.5,1, 0.5,  -0.5,1, 0.5,
+            // Left triangle (-1,0,0)
+            -0.5,0,-0.5, -0.5,0, 0.5,  -0.5,1, 0.5,
+            // Right triangle (+1,0,0)
+             0.5,0,-0.5,  0.5,1, 0.5,   0.5,0, 0.5,
+            // Slope (0,+1,-1)
+            -0.5,0,-0.5, -0.5,1, 0.5,   0.5,0,-0.5,
+             0.5,0,-0.5, -0.5,1, 0.5,   0.5,1, 0.5,
+          ]);
+          geometry = new THREE.BufferGeometry();
+          geometry.setAttribute('position', new THREE.BufferAttribute(verts, 3));
+          geometry.computeVertexNormals();
+          break;
+        }
+        default:
+          geometry=new THREE.BoxGeometry(1,1,1);
+          geometry.translate(0,0.5,0);
       }
       const colorInt = parseInt(shape.color.slice(1), 16);
       const emissiveInt = parseInt(shape.emissiveColor.slice(1), 16);
@@ -3654,6 +3757,9 @@
     function buildShapesAndObjects(R, roomId) {
       if (!R.shapes || R.shapes.length === 0) return;
       R.shapes.forEach(shape => {
+        // Skip spawn shapes - they're invisible during gameplay
+        if (shape.type === 'spawn') return;
+        
         const mesh = createShapeFromData(shape);
         roomGeoGroup.add(mesh);
       });
@@ -3763,7 +3869,33 @@
       if (R.stars) buildStars(); else { if (starField) { scene.remove(starField); starField = null; } }
 
       const al = new THREE.AmbientLight(R.ambient[0], R.ambient[1]); scene.add(al); sceneLights.push(al);
-      R.lights.forEach(ld => { const l = new THREE.PointLight(ld.c, ld.i, 35); l.position.set(...ld.p); l.castShadow = true; scene.add(l); sceneLights.push(l); });
+      (R.lights || []).slice(0, ROOM_POINT_LIGHT_RENDER_LIMIT).forEach(ld => {
+        const l = new THREE.PointLight(ld.c, ld.i, 35);
+        l.position.set(...ld.p);
+        l.castShadow = false;
+        scene.add(l);
+        sceneLights.push(l);
+      });
+      (R.dirLights || []).slice(0, ROOM_DIR_LIGHT_RENDER_LIMIT).forEach(ld => {
+        const dir = new THREE.Vector3(...(ld.d || [0, -1, 0]));
+        if (!dir.lengthSq()) dir.set(0, -1, 0);
+        const l = new THREE.DirectionalLight(ld.c, ld.i ?? 1);
+        l.position.copy(dir.clone().normalize().multiplyScalar(-40));
+        l.target.position.set(0, 0, 0);
+        l.castShadow = false;
+        scene.add(l);
+        scene.add(l.target);
+        sceneLights.push(l, l.target);
+      });
+      (R.rectLights || []).slice(0, ROOM_RECT_LIGHT_RENDER_LIMIT).forEach(ld => {
+        if (!THREE.RectAreaLight) return;
+        const l = new THREE.RectAreaLight(ld.c, ld.i ?? 1, ld.w || 2, ld.h || 2);
+        l.position.set(...(ld.p || [0, 3, -8]));
+        l.rotation.order = 'YXZ';
+        l.rotation.y = ld.ry || 0;
+        scene.add(l);
+        sceneLights.push(l);
+      });
 
       const SZ = R.sz || 40;
       const floorMat = new THREE.MeshStandardMaterial({ color: R.floor[0], emissive: R.floor[1], roughness: .85, metalness: .15 });
@@ -3802,6 +3934,19 @@
       buildPortals(id);
       buildParticles(R.accent);
       buildShapesAndObjects(R, id);
+      
+      // Handle spawn point positioning
+      if (R.shapes) {
+        const spawnShape = R.shapes.find(s => s.type === 'spawn');
+        if (spawnShape) {
+          camera.position.set(spawnShape.x, spawnShape.y + 1.7, spawnShape.z);
+          // Write directly to the outer yaw/pitch variables that the animation loop
+          // reads every frame (line 6024). Using const here would shadow them silently.
+          yaw   = spawnShape.ry || 0;
+          pitch = 0;
+        }
+      }
+      
       applyDeskObjectTransforms(id, R);
       syncDeskObjectColors(R.accent);
       attachPinnedObjectsToRoom(id);
@@ -5233,8 +5378,13 @@
       transitioning = true; AmbientAudio.portal();
       const fade = $('fade'); fade.style.opacity = '1'; fade.style.pointerEvents = 'all';
       await new Promise(r => setTimeout(r, 420));
-      currentRoom = id; buildRoom(id);
-      camera.position.set(0, 1.7, 4); yaw = 0; pitch = 0;
+      currentRoom = id;
+      // Check for a spawn point BEFORE calling buildRoom so we know whether to
+      // apply the default camera position afterwards (buildRoom sets yaw/pitch
+      // directly when a spawn shape exists).
+      const hasSpawn = ROOMS[id]?.shapes?.some(s => s.type === 'spawn');
+      buildRoom(id);
+      if (!hasSpawn) { camera.position.set(0, 1.7, 4); yaw = 0; pitch = 0; }
       $('room-name').textContent = ROOMS[id].name; updateBreadcrumb();
       const hubBtn = $('btn-hub'); if (hubBtn) hubBtn.classList.toggle('on', id === 'hub');
       setTimeout(() => { fade.style.opacity = '0'; fade.style.pointerEvents = 'none'; transitioning = false; }, 100);
@@ -5899,24 +6049,49 @@
           if (!hits.some(h => h.distance < COLLISION_DIST)) camera.position.addScaledVector(right, spd * dt);
         }
         
-        // Jump and gravity
-        const isGrounded = camera.position.y <= GROUND_Y + 0.01;
-        if (keys['Space'] && isGrounded) {
-          velocityY = JUMP_FORCE;
-          keys['Space'] = false;
-        }
-        
-        // Apply gravity
+        // ── Vertical physics ─────────────────────────────────────────────
+        const PLAYER_EYE = 1.7; // eye-to-feet height
+        const HEAD_ROOM   = 0.4; // eye-to-crown clearance
+
+        // Jump — only when on the ground or standing on a shape surface
+        const isGrounded = camera.position.y <= GROUND_Y + 0.05 ||
+          (() => { const r=new THREE.Raycaster(camera.position,new THREE.Vector3(0,-1,0)); const h=r.intersectObjects(collisionPool,true); return h.length>0&&h[0].distance<=PLAYER_EYE+0.06; })();
+        if (keys['Space'] && isGrounded) { velocityY = JUMP_FORCE; keys['Space'] = false; }
+
         velocityY -= GRAVITY * dt;
         camera.position.y += velocityY * dt;
-        
-        // Keep grounded
+
+        // 1. Shape-surface floor — cast downward; land on top of any solid mesh
+        const downRay = new THREE.Raycaster(camera.position, new THREE.Vector3(0,-1,0));
+        const downHits = downRay.intersectObjects(collisionPool, true);
+        if (downHits.length > 0 && downHits[0].distance <= PLAYER_EYE + 0.35) {
+          const surfaceY = downHits[0].point.y + PLAYER_EYE;
+          if (surfaceY > GROUND_Y) {
+            // Only land if we're falling onto it, not clipping up through it
+            if (velocityY <= 0) {
+              camera.position.y = surfaceY;
+              velocityY = 0;
+            }
+          }
+        }
+
+        // 2. Global room floor fallback
         if (camera.position.y <= GROUND_Y) {
           camera.position.y = GROUND_Y;
           velocityY = 0;
         }
-        
-        // Clamp to room boundaries (dynamic based on room size)
+
+        // 3. Ceiling / underside collision — only when moving upward
+        if (velocityY > 0) {
+          const upRay = new THREE.Raycaster(camera.position, new THREE.Vector3(0,1,0));
+          const upHits = upRay.intersectObjects(collisionPool, true);
+          if (upHits.length > 0 && upHits[0].distance <= HEAD_ROOM) {
+            camera.position.y = upHits[0].point.y - HEAD_ROOM;
+            velocityY = 0;
+          }
+        }
+
+        // 4. Room boundary clamp
         const R = ROOMS[currentRoom];
         if (R) {
           const half = (R.sz || 40) / 2 - 0.6;
@@ -6064,7 +6239,7 @@
         }
         items.push(entry);
       }
-      const json = JSON.stringify({ version: 1, timestamp: Date.now(), items, customRooms: CUSTOM_ROOMS }, null, 2);
+      const json = JSON.stringify({ version: 1, timestamp: Date.now(), items, customRooms: CUSTOM_ROOMS, customHome: ROOMS.home }, null, 2);
       const a = document.createElement('a'); a.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(json);
       a.download = 'save.json'; a.click();
       showToast('Layout exported → save.json');
@@ -6085,6 +6260,13 @@
           }
           await DB.set('custom_rooms', JSON.stringify(CUSTOM_ROOMS));
           renderModsList();
+        }
+        // Restore custom home if present in save file
+        if (data.customHome && typeof data.customHome === 'object') {
+          ROOMS.home = buildRoomDefFromMod(data.customHome);
+          if (currentRoom === 'home') {
+            buildRoom('home');
+          }
         }
         bumpIdCounter(items); // fix: ensure new pins don't reuse IDs already in the imported layout
         // Clear existing pinned
@@ -7253,21 +7435,33 @@
         }
         
         // Jump for gamepad (A/Cross button)
-        const isGrounded = camera.position.y <= GROUND_Y + 0.01;
-        if (btns[0] && btns[0].pressed && isGrounded) {
-          velocityY = JUMP_FORCE;
-        }
-        
+        const isGrounded = camera.position.y <= GROUND_Y + 0.05 ||
+          (() => { const r=new THREE.Raycaster(camera.position,new THREE.Vector3(0,-1,0)); const h=r.intersectObjects(collisionPool,true); return h.length>0&&h[0].distance<=1.75+0.06; })();
+        if (btns[0] && btns[0].pressed && isGrounded) { velocityY = JUMP_FORCE; }
+
         // Apply gravity in gamepad mode
+        const GP_EYE = 1.7, GP_HEAD = 0.4;
         velocityY -= GRAVITY * dt;
         camera.position.y += velocityY * dt;
-        
-        // Keep grounded
-        if (camera.position.y <= GROUND_Y) {
-          camera.position.y = GROUND_Y;
-          velocityY = 0;
+
+        // Shape surface floor
+        const gpDown = new THREE.Raycaster(camera.position, new THREE.Vector3(0,-1,0));
+        const gpDHits = gpDown.intersectObjects(collisionPool, true);
+        if (gpDHits.length > 0 && gpDHits[0].distance <= GP_EYE + 0.35) {
+          const sY = gpDHits[0].point.y + GP_EYE;
+          if (sY > GROUND_Y && velocityY <= 0) { camera.position.y = sY; velocityY = 0; }
         }
-        
+
+        // Room floor fallback
+        if (camera.position.y <= GROUND_Y) { camera.position.y = GROUND_Y; velocityY = 0; }
+
+        // Ceiling
+        if (velocityY > 0) {
+          const gpUp = new THREE.Raycaster(camera.position, new THREE.Vector3(0,1,0));
+          const gpUHits = gpUp.intersectObjects(collisionPool, true);
+          if (gpUHits.length > 0 && gpUHits[0].distance <= GP_HEAD) { camera.position.y = gpUHits[0].point.y - GP_HEAD; velocityY = 0; }
+        }
+
         // Clamp to room boundaries (dynamic based on room size) - allow high Y for jumping
         const R = ROOMS[currentRoom];
         if (R) {

@@ -1,0 +1,672 @@
+{
+  "version": "dxroom/1",
+  "id": "theatre",
+  "name": "Theatre",
+  "sz": 80,
+  "wallH": 28,
+  "fog": 197379,
+  "fogD": 0,
+  "sky": [
+    [
+      0,
+      "#030303"
+    ],
+    [
+      1,
+      "#000000"
+    ]
+  ],
+  "stars": true,
+  "ambient": [
+    526344,
+    0.3
+  ],
+  "lights": [
+    {
+      "c": 8913151,
+      "i": 10,
+      "p": [
+        0,
+        27,
+        0
+      ]
+    },
+    {
+      "c": 4456618,
+      "i": 10,
+      "p": [
+        25,
+        27,
+        -25
+      ]
+    },
+    {
+      "c": 4456618,
+      "i": 10,
+      "p": [
+        -25,
+        27,
+        25
+      ]
+    },
+    {
+      "c": 4456618,
+      "i": 10,
+      "p": [
+        25,
+        27,
+        25
+      ]
+    },
+    {
+      "c": 4456618,
+      "i": 10,
+      "p": [
+        -25,
+        27,
+        -25
+      ]
+    },
+    {
+      "c": 4456618,
+      "i": 10,
+      "p": [
+        0,
+        5.5,
+        15
+      ]
+    },
+    {
+      "c": 16777215,
+      "i": 0.5,
+      "p": [
+        40,
+        6.5,
+        -1
+      ]
+    },
+    {
+      "c": 16777215,
+      "i": 0.5,
+      "p": [
+        -40,
+        6.5,
+        -1
+      ]
+    },
+    {
+      "c": 16777215,
+      "i": 0.5,
+      "p": [
+        40,
+        8.5,
+        9
+      ]
+    },
+    {
+      "c": 16777215,
+      "i": 0.5,
+      "p": [
+        40,
+        10.5,
+        19
+      ]
+    },
+    {
+      "c": 16777215,
+      "i": 0.5,
+      "p": [
+        40,
+        12.5,
+        29
+      ]
+    },
+    {
+      "c": 16777215,
+      "i": 0.5,
+      "p": [
+        -40,
+        8.5,
+        9
+      ]
+    },
+    {
+      "c": 16777215,
+      "i": 1,
+      "p": [
+        -40,
+        10.5,
+        19
+      ]
+    },
+    {
+      "c": 16777215,
+      "i": 0.5,
+      "p": [
+        -40,
+        12.5,
+        29
+      ]
+    },
+    {
+      "c": 16777215,
+      "i": 1,
+      "p": [
+        -40,
+        4,
+        -12
+      ]
+    },
+    {
+      "c": 16777215,
+      "i": 1,
+      "p": [
+        40,
+        4,
+        -12
+      ]
+    }
+  ],
+  "floor": [
+    394758,
+    197379
+  ],
+  "wall": [
+    526344,
+    263172
+  ],
+  "grid": 1118481,
+  "accent": 6684927,
+  "portals": [
+    {
+      "pos": [
+        39,
+        0,
+        -39
+      ],
+      "rot": -0.8,
+      "target": "home",
+      "label": "Home"
+    }
+  ],
+  "icons": [],
+  "iconTypes": [],
+  "iconWall": "front",
+  "shapes": [
+    {
+      "id": "shape_001",
+      "type": "cube",
+      "color": "#030304",
+      "roughness": 0.5,
+      "metalness": 0,
+      "emissiveColor": "#000000",
+      "emissiveIntensity": 2,
+      "x": -0.052105263157894655,
+      "y": 5.5,
+      "z": 7.835789473684208,
+      "rx": 0,
+      "ry": 0,
+      "rz": 0,
+      "sx": 80,
+      "sy": 0.5,
+      "sz": 45,
+      "group": "group_001",
+      "solid": true,
+      "room": null
+    },
+    {
+      "id": "shape_002",
+      "type": "cube",
+      "color": "#030304",
+      "roughness": 0.5,
+      "metalness": 0,
+      "emissiveColor": "#000000",
+      "emissiveIntensity": 2,
+      "x": -0.052105263157894655,
+      "y": 6,
+      "z": 12.855789473684212,
+      "rx": 0,
+      "ry": 0,
+      "rz": 0,
+      "sx": 80,
+      "sy": 2,
+      "sz": 35,
+      "group": "group_001",
+      "solid": true,
+      "room": null
+    },
+    {
+      "id": "shape_003",
+      "type": "cube",
+      "color": "#030304",
+      "roughness": 0.5,
+      "metalness": 0,
+      "emissiveColor": "#000000",
+      "emissiveIntensity": 2,
+      "x": -0.052105263157894655,
+      "y": 8,
+      "z": 17.86578947368421,
+      "rx": 0,
+      "ry": 0,
+      "rz": 0,
+      "sx": 80,
+      "sy": 2,
+      "sz": 25,
+      "group": "group_001",
+      "solid": true,
+      "room": null
+    },
+    {
+      "id": "shape_004",
+      "type": "cube",
+      "color": "#030304",
+      "roughness": 0.5,
+      "metalness": 0,
+      "emissiveColor": "#000000",
+      "emissiveIntensity": 2,
+      "x": -0.052105263157894655,
+      "y": 10,
+      "z": 22.895789473684207,
+      "rx": 0,
+      "ry": 0,
+      "rz": 0,
+      "sx": 80,
+      "sy": 2,
+      "sz": 15,
+      "group": "group_001",
+      "solid": true,
+      "room": null
+    },
+    {
+      "id": "shape_007",
+      "type": "cube",
+      "color": "#030304",
+      "roughness": 0.5,
+      "metalness": 0,
+      "emissiveColor": "#000000",
+      "emissiveIntensity": 2,
+      "x": -0.052105263157894655,
+      "y": 12,
+      "z": 27.84578947368421,
+      "rx": 0,
+      "ry": 0,
+      "rz": 0,
+      "sx": 80,
+      "sy": 2,
+      "sz": 5,
+      "group": "group_001",
+      "solid": true,
+      "room": null
+    },
+    {
+      "id": "shape_008",
+      "type": "wedge",
+      "color": "#030304",
+      "roughness": 0.5,
+      "metalness": 0,
+      "emissiveColor": "#000000",
+      "emissiveIntensity": 2,
+      "x": -38.0521052631579,
+      "y": 6.01,
+      "z": -7.65421052631579,
+      "rx": 0,
+      "ry": 0,
+      "rz": 0,
+      "sx": 6,
+      "sy": 2,
+      "sz": 6,
+      "group": "group_001",
+      "solid": true,
+      "room": null
+    },
+    {
+      "id": "shape_009",
+      "type": "wedge",
+      "color": "#030304",
+      "roughness": 0.5,
+      "metalness": 0,
+      "emissiveColor": "#000000",
+      "emissiveIntensity": 2,
+      "x": -38.0521052631579,
+      "y": 8,
+      "z": 2.34578947368421,
+      "rx": 0,
+      "ry": 0,
+      "rz": 0,
+      "sx": 6,
+      "sy": 2,
+      "sz": 6,
+      "group": "group_001",
+      "solid": true,
+      "room": null
+    },
+    {
+      "id": "shape_010",
+      "type": "wedge",
+      "color": "#030304",
+      "roughness": 0.5,
+      "metalness": 0,
+      "emissiveColor": "#000000",
+      "emissiveIntensity": 2,
+      "x": -38.0521052631579,
+      "y": 10,
+      "z": 12.34578947368421,
+      "rx": 0,
+      "ry": 0,
+      "rz": 0,
+      "sx": 6,
+      "sy": 2,
+      "sz": 6,
+      "group": "group_001",
+      "solid": true,
+      "room": null
+    },
+    {
+      "id": "shape_011",
+      "type": "wedge",
+      "color": "#030304",
+      "roughness": 0.5,
+      "metalness": 0,
+      "emissiveColor": "#000000",
+      "emissiveIntensity": 2,
+      "x": -38.0521052631579,
+      "y": 12,
+      "z": 22.34578947368421,
+      "rx": 0,
+      "ry": 0,
+      "rz": 0,
+      "sx": 6,
+      "sy": 2,
+      "sz": 6,
+      "group": "group_001",
+      "solid": true,
+      "room": null
+    },
+    {
+      "id": "shape_012",
+      "type": "wedge",
+      "color": "#030304",
+      "roughness": 0.5,
+      "metalness": 0,
+      "emissiveColor": "#000000",
+      "emissiveIntensity": 2,
+      "x": -37.0521052631579,
+      "y": 0,
+      "z": -22.15421052631579,
+      "rx": 0,
+      "ry": 0,
+      "rz": 0,
+      "sx": 6,
+      "sy": 6,
+      "sz": 15,
+      "group": "group_001",
+      "solid": true,
+      "room": null
+    },
+    {
+      "id": "shape_013",
+      "type": "wedge",
+      "color": "#030304",
+      "roughness": 0.5,
+      "metalness": 0,
+      "emissiveColor": "#000000",
+      "emissiveIntensity": 0.05,
+      "x": 37.9478947368421,
+      "y": 6.01,
+      "z": -7.65421052631579,
+      "rx": 0,
+      "ry": 0,
+      "rz": 0,
+      "sx": 6,
+      "sy": 2,
+      "sz": 6,
+      "group": "group_001",
+      "solid": true,
+      "room": null
+    },
+    {
+      "id": "shape_014",
+      "type": "wedge",
+      "color": "#030304",
+      "roughness": 0.5,
+      "metalness": 0,
+      "emissiveColor": "#000000",
+      "emissiveIntensity": 0.05,
+      "x": 37.9478947368421,
+      "y": 8,
+      "z": 2.34578947368421,
+      "rx": 0,
+      "ry": 0,
+      "rz": 0,
+      "sx": 6,
+      "sy": 2,
+      "sz": 6,
+      "group": "group_001",
+      "solid": true,
+      "room": null
+    },
+    {
+      "id": "shape_015",
+      "type": "wedge",
+      "color": "#030304",
+      "roughness": 0.5,
+      "metalness": 0,
+      "emissiveColor": "#000000",
+      "emissiveIntensity": 0.05,
+      "x": 37.9478947368421,
+      "y": 10,
+      "z": 12.34578947368421,
+      "rx": 0,
+      "ry": 0,
+      "rz": 0,
+      "sx": 6,
+      "sy": 2,
+      "sz": 6,
+      "group": "group_001",
+      "solid": true,
+      "room": null
+    },
+    {
+      "id": "shape_016",
+      "type": "wedge",
+      "color": "#030304",
+      "roughness": 0.5,
+      "metalness": 0,
+      "emissiveColor": "#000000",
+      "emissiveIntensity": 0.05,
+      "x": 37.9478947368421,
+      "y": 12,
+      "z": 22.34578947368421,
+      "rx": 0,
+      "ry": 0,
+      "rz": 0,
+      "sx": 6,
+      "sy": 2,
+      "sz": 6,
+      "group": "group_001",
+      "solid": true,
+      "room": null
+    },
+    {
+      "id": "shape_017",
+      "type": "wedge",
+      "color": "#030304",
+      "roughness": 0.5,
+      "metalness": 0,
+      "emissiveColor": "#000000",
+      "emissiveIntensity": 0.05,
+      "x": 37.9478947368421,
+      "y": 0,
+      "z": -22.15421052631579,
+      "rx": 0,
+      "ry": 0,
+      "rz": 0,
+      "sx": 6,
+      "sy": 6,
+      "sz": 15,
+      "group": "group_001",
+      "solid": true,
+      "room": null
+    },
+    {
+      "id": "shape_018",
+      "type": "cube",
+      "color": "#030304",
+      "roughness": 0.5,
+      "metalness": 0,
+      "emissiveColor": "#000000",
+      "emissiveIntensity": 2,
+      "x": -37.0521052631579,
+      "y": 0,
+      "z": -25.91421052631579,
+      "rx": 0,
+      "ry": 0,
+      "rz": 0,
+      "sx": 6,
+      "sy": 3,
+      "sz": 7.5,
+      "group": "group_001",
+      "solid": true,
+      "room": null
+    },
+    {
+      "id": "shape_019",
+      "type": "cube",
+      "color": "#030304",
+      "roughness": 0.5,
+      "metalness": 0,
+      "emissiveColor": "#000000",
+      "emissiveIntensity": 0.05,
+      "x": 36.9478947368421,
+      "y": 0,
+      "z": -25.91421052631579,
+      "rx": 0,
+      "ry": 0,
+      "rz": 0,
+      "sx": 6,
+      "sy": 3,
+      "sz": 7.5,
+      "group": "group_001",
+      "solid": true,
+      "room": null
+    },
+    {
+      "id": "shape_020",
+      "type": "wedge",
+      "color": "#030304",
+      "roughness": 0.5,
+      "metalness": 0,
+      "emissiveColor": "#000000",
+      "emissiveIntensity": 2,
+      "x": -30.562105263157896,
+      "y": 0,
+      "z": -25.95421052631579,
+      "rx": 0,
+      "ry": -1.5707963267948966,
+      "rz": 0,
+      "sx": 7.4,
+      "sy": 3,
+      "sz": 7,
+      "group": "group_001",
+      "solid": true,
+      "room": null
+    },
+    {
+      "id": "shape_021",
+      "type": "wedge",
+      "color": "#030304",
+      "roughness": 0.5,
+      "metalness": 0,
+      "emissiveColor": "#000000",
+      "emissiveIntensity": 0.05,
+      "x": 30.447894736842105,
+      "y": 0,
+      "z": -25.97421052631579,
+      "rx": 0,
+      "ry": 1.5707963267948966,
+      "rz": 0,
+      "sx": 7.4,
+      "sy": 3,
+      "sz": 7,
+      "group": "group_001",
+      "solid": true,
+      "room": null
+    },
+    {
+      "id": "shape_022",
+      "type": "spawn",
+      "color": "#00ff41",
+      "roughness": 0.5,
+      "metalness": 0,
+      "emissiveColor": "#000000",
+      "emissiveIntensity": 0,
+      "x": -37.67,
+      "y": 0,
+      "z": 37.84,
+      "rx": 1.2390956087613383e-16,
+      "ry": -1.0596860420909398,
+      "rz": 1.9311140133233626e-16,
+      "sx": 1,
+      "sy": 1,
+      "sz": 1,
+      "group": null,
+      "solid": true,
+      "room": null
+    }
+  ],
+  "groups": [
+    {
+      "id": "Stairs",
+      "label": "Group 1",
+      "shapeIds": [
+        "shape_001",
+        "shape_002",
+        "shape_003",
+        "shape_004",
+        "shape_007",
+        "shape_008",
+        "shape_009",
+        "shape_010",
+        "shape_011",
+        "shape_012",
+        "shape_013",
+        "shape_014",
+        "shape_015",
+        "shape_016",
+        "shape_017",
+        "shape_018",
+        "shape_019",
+        "shape_020",
+        "shape_021"
+      ],
+      "deskObjIds": [],
+      "x": 0.052105263157894655,
+      "y": 0,
+      "z": 9.65421052631579,
+      "rx": 0,
+      "ry": 0,
+      "rz": 0,
+      "sx": 1,
+      "sy": 1,
+      "sz": 1,
+      "visible": true
+    }
+  ],
+  "deskObjects": [
+    {
+      "id": "movie_screen_002",
+      "type": "movie_screen",
+      "x": 0,
+      "y": -0.39,
+      "z": -39.91,
+      "rx": 0,
+      "ry": 0,
+      "rz": 0,
+      "sx": 4,
+      "sy": 4,
+      "sz": 4,
+      "visible": true,
+      "room": null
+    }
+  ]
+}
