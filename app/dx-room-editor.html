@@ -6,6 +6,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/lights/RectAreaLightUniformsLib.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/fflate.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -240,6 +243,17 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:11px;
 .h-act.h-del:hover{color:#ff6644;background:rgba(255,60,0,.12)}
 .h-group-children{display:none}
 .h-group-children.open{display:block}
+.snap-on{color:#adffbc!important;border-color:#adffbc!important;box-shadow:0 0 10px rgba(173,255,188,.18)}
+#import-model-btn{width:100%;background:rgba(0,180,120,.16);border:1px solid rgba(0,220,160,.36);color:#66ffcc;padding:8px;border-radius:4px;cursor:pointer;font-family:var(--fm);font-size:10px;text-align:center;transition:all .12s;margin-bottom:12px}
+#import-model-btn:hover{background:rgba(0,220,160,.24);color:#d8fff0;border-color:rgba(0,255,190,.55)}
+#history-panel{border-top:1px solid var(--border);padding:8px 10px 10px;max-height:150px;overflow:hidden;flex-shrink:0}
+#history-hdr{display:flex;align-items:center;gap:6px;margin-bottom:6px;font-family:var(--fh);font-size:8px;letter-spacing:.12em;color:var(--acc)}
+.hist-btn{background:rgba(0,255,70,.08);border:1px solid rgba(0,255,70,.22);color:var(--dim);border-radius:3px;padding:3px 6px;cursor:pointer;font-size:9px;font-family:var(--fm)}
+.hist-btn:hover{color:var(--gold);border-color:rgba(0,255,70,.45)}
+.hist-btn:disabled{opacity:.35;cursor:not-allowed}
+#history-list{max-height:88px;overflow-y:auto;font-size:9px;line-height:1.65;color:var(--dim)}
+.hist-item{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-left:2px solid transparent;padding-left:5px}
+.hist-item.cur{color:var(--gold);border-left-color:var(--gold)}
 </style>
 </head>
 <body>
@@ -367,6 +381,9 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:11px;
       </div>
 
       <div class="panel" id="p-shapes">
+        <div class="sec">IMPORT MODEL</div>
+        <input type="file" id="model-import" accept=".glb,.gltf,.fbx" style="display:none" onchange="importModelFile(this)">
+        <button id="import-model-btn" onclick="$('model-import').click()">+ Import 3D Model</button>
         <div class="sec">ADD SHAPE</div>
         <div class="shape-grid">
           <button class="shape-tile" onclick="createShape('cube')">
@@ -456,6 +473,7 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:11px;
       <button class="gizmo-btn" data-mode="rotate" onclick="setGizmoMode('rotate')">ROTATION</button>
       <button class="gizmo-btn" data-mode="scale" onclick="setGizmoMode('scale')">SCALE</button>
       <button class="gizmo-btn" data-mode="facedrag" onclick="setGizmoMode('facedrag')">FACE-DRAG</button>
+      <button class="gizmo-btn" id="snap-btn" onclick="toggleSnapMode()" title="Snap moved objects against nearby shape faces">SNAP OFF</button>
     </div>
     <div id="pvhint">WASD·QE move | RMB look | LMB select·face-drag resize | T/R/S gizmo</div>
     <div id="pvinfo"></div>
@@ -477,6 +495,10 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:11px;
         <button id="btn-del" onclick="deleteSelected()" disabled title="Delete (Del)">DEL</button>
       </div>
       <div id="rp-data" style="display:none"></div>
+      <div id="history-panel">
+        <div id="history-hdr"><span>HISTORY</span><span style="flex:1"></span><button class="hist-btn" id="undo-btn" onclick="undoAction()" title="Ctrl+Z">UNDO</button><button class="hist-btn" id="redo-btn" onclick="redoAction()" title="Ctrl+Y">REDO</button></div>
+        <div id="history-list"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -515,7 +537,8 @@ const S = {
   dirLights:[],
   rectLights:[],
   icons:    [{name:'Downloads',type:'folder'},{name:'Documents',type:'folder'},{name:'Music',type:'audio'},{name:'Photos',type:'photo'}],
-  portals:  []
+  portals:  [],
+  modelObjects: []
 };
 
 // ═══════════════════════════════════════════════════
@@ -530,6 +553,9 @@ function cs(inp){ const s=inp.nextElementSibling; if(s&&s.classList.contains('cv
 function sv(rid,vid,d){ $(vid).textContent = parseFloat(v(rid)).toFixed(d); }
 function si(id,val){ const el=$(id); if(!el)return; el.value=val; const s=el.nextElementSibling; if(s&&s.classList.contains('cv')) s.textContent=val; }
 function uinfo(){ $(pvinfo).innerHTML=`<div>${v('rn')||'Unnamed'}</div><div style="opacity:.45;font-size:7.5px">${v('ri')||'no-id'}</div>`; }
+function deepCopy(o){ return JSON.parse(JSON.stringify(o)); }
+function fileToDataURL(file){ return new Promise((resolve,reject)=>{ const r=new FileReader(); r.onload=()=>resolve(r.result); r.onerror=()=>reject(r.error); r.readAsDataURL(file); }); }
+function escAttr(t){ return String(t??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 // ═══════════════════════════════════════════════════
 // TABS
@@ -580,6 +606,7 @@ function ap(key){
   });
   bindStaticScrubs();
   rb();
+  commitHistory('Delete shape');
 }
 
 // ═══════════════════════════════════════════════════
@@ -771,7 +798,8 @@ function exportRoom(){
     iconWall:v('iw'),
     shapes:S.shapes.map(s=>({id:s.id,type:s.type,color:s.color,roughness:s.roughness,metalness:s.metalness,emissiveColor:s.emissiveColor,emissiveIntensity:s.emissiveIntensity,x:s.x,y:s.y,z:s.z,rx:s.rx,ry:s.ry,rz:s.rz,sx:s.sx,sy:s.sy,sz:s.sz,group:s.group,solid:true,room:s.room||null})),
     groups:S.groups.map(g=>({id:g.id,label:g.label,shapeIds:g.shapeIds,deskObjIds:g.deskObjIds||[],x:g.x,y:g.y,z:g.z,rx:g.rx,ry:g.ry,rz:g.rz,sx:g.sx||1,sy:g.sy||1,sz:g.sz||1,visible:g.visible})),
-    deskObjects:S.deskObjects.map(o=>({id:o.id,type:o.type,x:o.x,y:o.y,z:o.z,rx:o.rx,ry:o.ry,rz:o.rz,sx:o.sx,sy:o.sy,sz:o.sz,visible:o.visible,room:o.room||null}))
+    deskObjects:S.deskObjects.map(o=>({id:o.id,type:o.type,x:o.x,y:o.y,z:o.z,rx:o.rx,ry:o.ry,rz:o.rz,sx:o.sx,sy:o.sy,sz:o.sz,visible:o.visible,room:o.room||null})),
+    modelObjects:(S.modelObjects||[]).map(m=>({...m}))
   };
   const a=document.createElement('a');
   a.href='data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(def,null,2));
@@ -887,10 +915,14 @@ function importRoom(def){
     S.deskObjects=def.deskObjects.map(o=>({id:o.id,type:o.type,x:o.x,y:o.y,z:o.z,rx:o.rx,ry:o.ry,rz:o.rz,sx:o.sx,sy:o.sy,sz:o.sz,visible:o.visible,room:o.room||null}));
   }
 
+  // ── Imported 3D models ─────────────────────────────
+  S.modelObjects=Array.isArray(def.modelObjects)?def.modelObjects.map(m=>({...m})):[];
+
   syncGroupMembership();
   renderShapeCards();
   bindStaticScrubs();
   rb();
+  commitHistory('Delete shape');
 }
 
 
@@ -899,9 +931,79 @@ function importRoom(def){
 if(!S.shapes)S.shapes=[];
 if(!S.groups)S.groups=[];
 if(!S.deskObjects)S.deskObjects=[];
+if(!S.modelObjects)S.modelObjects=[];
 S.selectedObject=null;
 S.selectedType=null;
 
+
+// ═══════════════════════════════════════════════════
+// ACTION HISTORY
+// ═══════════════════════════════════════════════════
+const HISTORY_LIMIT = 40;
+let historyStack = [];
+let redoStack = [];
+let isApplyingHistory = false;
+let historyTimer = null;
+function captureEditorState(label='Edit'){
+  return {
+    label,
+    t: Date.now(),
+    controls:{rn:v('rn'),ri:v('ri'),rsz:v('rsz'),wh:v('wh'),fc:v('fc'),fd:v('fd'),stars:bv('stars'),ac:v('ac'),ai:v('ai'),f1:v('f1'),f2:v('f2'),w1:v('w1'),w2:v('w2'),gc:v('gc'),xc:v('xc'),iw:v('iw')},
+    S: deepCopy({sky:S.sky,lights:S.lights,dirLights:S.dirLights,rectLights:S.rectLights,icons:S.icons,portals:S.portals,shapes:S.shapes,groups:S.groups,deskObjects:S.deskObjects,modelObjects:S.modelObjects||[]}),
+    selected:S.selectedObject?{type:S.selectedType,id:S.selectedObject.id}:null,
+    hierarchy:deepCopy(S.hierarchySelection||[])
+  };
+}
+function applyEditorState(snap){
+  if(!snap) return;
+  isApplyingHistory = true;
+  Object.entries(snap.controls||{}).forEach(([id,val])=>{ const el=$(id); if(!el)return; if(el.type==='checkbox')el.checked=!!val; else el.value=val; });
+  Object.assign(S, deepCopy(snap.S));
+  if(!S.modelObjects) S.modelObjects=[];
+  rSky(); rLights(); rDirLights(); rRectLights(); rIcons(); rPortals(); bindStaticScrubs();
+  S.hierarchySelection=deepCopy(snap.hierarchy||[]);
+  S.selectedType=snap.selected?.type||null;
+  S.selectedObject=snap.selected ? (findEditableObject(snap.selected.id)) : null;
+  renderHierarchy(); renderTransformControls(); rb();
+  if(S.selectedObject) attachGizmoToObject(S.selectedObject); else detachGizmo();
+  isApplyingHistory = false;
+  renderHistoryPanel();
+}
+function commitHistory(label='Edit'){
+  if(isApplyingHistory) return;
+  clearTimeout(historyTimer);
+  historyStack.push(captureEditorState(label));
+  if(historyStack.length>HISTORY_LIMIT) historyStack.shift();
+  redoStack=[];
+  renderHistoryPanel();
+}
+function scheduleHistory(label='Edit'){
+  if(isApplyingHistory) return;
+  clearTimeout(historyTimer);
+  historyTimer=setTimeout(()=>commitHistory(label), 350);
+}
+function undoAction(){
+  clearTimeout(historyTimer);
+  if(historyStack.length<=1) return;
+  redoStack.push(historyStack.pop());
+  applyEditorState(historyStack[historyStack.length-1]);
+}
+function redoAction(){
+  clearTimeout(historyTimer);
+  const snap=redoStack.pop();
+  if(!snap) return;
+  historyStack.push(snap);
+  applyEditorState(snap);
+}
+function renderHistoryPanel(){
+  const list=$('history-list'); if(!list) return;
+  $('undo-btn').disabled = historyStack.length<=1;
+  $('redo-btn').disabled = redoStack.length===0;
+  list.innerHTML = historyStack.slice(-8).reverse().map((h,i)=>`<div class="hist-item${i===0?' cur':''}">${escAttr(h.label)}</div>`).join('') || '<div class="hist-item cur">Initial</div>';
+}
+function findEditableObject(id){
+  return S.shapes.find(s=>s.id===id)||S.groups.find(g=>g.id===id)||S.deskObjects.find(o=>o.id===id)||(S.modelObjects||[]).find(m=>m.id===id)||null;
+}
 function syncGroupMembership(){
   if(!Array.isArray(S.groups)||!Array.isArray(S.shapes)) return;
   const shapeIds=new Set(S.shapes.map(s=>s.id));
@@ -1309,6 +1411,7 @@ if(THREE.RectAreaLightUniformsLib) THREE.RectAreaLightUniformsLib.init();
 const scene=new THREE.Scene();
 const camera=new THREE.PerspectiveCamera(65,1,.1,200);
 let pvL=[],pvO=[];
+let renderSerial=0;
 let selectionHelper=null;
 let raycaster=new THREE.Raycaster();
 let mouse=new THREE.Vector2();
@@ -1343,6 +1446,7 @@ function createShape(type){
   const id=nextShapeId();
   S.shapes.push({id,type,color:'#00ff41',roughness:0.5,metalness:0,emissiveColor:'#000000',emissiveIntensity:0,x:0,y:0,z:0,rx:0,ry:0,rz:0,sx:1,sy:1,sz:1,group:null,room:null});
   selectShape(id);
+  commitHistory('Create '+type);
 }
 
 function selectShape(shapeId){
@@ -1380,6 +1484,7 @@ function deleteShape(shapeId){
   renderShapeCards();
   renderTransformControls();
   rb();
+  commitHistory('Delete shape');
 }
 
 function deleteGroup(groupId){
@@ -1418,12 +1523,74 @@ function deleteGroup(groupId){
   renderShapeCards();
   renderTransformControls();
   rb();
+  commitHistory('Delete shape');
 }
 
+
+function nextModelId(){
+  const max=(S.modelObjects||[]).reduce((m,o)=>{const n=parseInt((o.id||'').replace('model_',''),10);return isNaN(n)?m:Math.max(m,n);},0);
+  return `model_${String(max+1).padStart(3,'0')}`;
+}
+async function importModelFile(input){
+  const file=input.files?.[0]; if(!file) return;
+  const ext=(file.name.split('.').pop()||'glb').toLowerCase();
+  if(!['glb','gltf','fbx'].includes(ext)){ alert('Supported model formats: .glb, .gltf, .fbx'); input.value=''; return; }
+  const id=nextModelId();
+  const dataUrl=await fileToDataURL(file);
+  const obj={id,type:'model3d',title:file.name,ext,dataUrl,x:0,y:0,z:0,rx:0,ry:0,rz:0,sx:1,sy:1,sz:1,visible:true,room:null,w:1,h:1,d:1};
+  S.modelObjects.push(obj);
+  commitHistory('Import model: '+file.name);
+  selectModelObject(id);
+  input.value='';
+}
+function selectModelObject(id){
+  S.selectedObject=(S.modelObjects||[]).find(o=>o.id===id);
+  S.selectedType='modelObject';
+  S.hierarchySelection=[{type:'modelObject',id}];
+  renderHierarchy(); renderTransformControls(); rb(); attachGizmoToObject(S.selectedObject);
+}
+function deleteModelObject(id){
+  S.modelObjects=(S.modelObjects||[]).filter(o=>o.id!==id);
+  S.selectedObject=null; S.selectedType=null; S.hierarchySelection=[];
+  detachGizmo(); showSelectionIndicator(null); renderHierarchy(); renderTransformControls(); rb(); commitHistory('Delete model');
+}
+function normalizeLoadedModel(root, data){
+  root.traverse(n=>{ if(n.isMesh){ n.frustumCulled=false; n.castShadow=false; n.receiveShadow=true; if(n.material){ [].concat(n.material).forEach(m=>m.side=THREE.DoubleSide); } } });
+  const box=new THREE.Box3().setFromObject(root);
+  const size=box.getSize(new THREE.Vector3());
+  const center=box.getCenter(new THREE.Vector3());
+  root.position.sub(center);
+  const maxAxis=Math.max(size.x,size.y,size.z)||1;
+  const fit=2/maxAxis;
+  root.scale.multiplyScalar(fit);
+  data.w=Math.max(size.x*fit,.2); data.h=Math.max(size.y*fit,.2); data.d=Math.max(size.z*fit,.2);
+}
+function createModelObjectMesh(data, serial){
+  const holder=new THREE.Group();
+  holder.position.set(data.x,data.y,data.z);
+  holder.rotation.set(data.rx,data.ry,data.rz);
+  holder.scale.set(data.sx,data.sy,data.sz);
+  holder.userData.modelObjId=data.id; holder.userData.selectableId=data.id;
+  const box=new THREE.Mesh(new THREE.BoxGeometry(data.w||1,data.h||1,data.d||1),new THREE.MeshBasicMaterial({color:0x00ffaa,wireframe:true,transparent:true,opacity:.28}));
+  box.position.y=(data.h||1)/2;
+  box.userData.modelObjId=data.id; box.userData.selectableId=data.id;
+  holder.add(box);
+  const finish=root=>{
+    if(serial!==renderSerial) return;
+    holder.remove(box);
+    root.position.y += (data.h||1)/2;
+    holder.add(root);
+  };
+  const fail=()=>{ box.material.color.set(0xff6644); };
+  if(data.ext==='fbx' && THREE.FBXLoader){ new THREE.FBXLoader().load(data.dataUrl, obj=>{normalizeLoadedModel(obj,data);finish(obj);}, undefined, fail); }
+  else if(THREE.GLTFLoader){ new THREE.GLTFLoader().load(data.dataUrl, gltf=>{const root=gltf.scene||gltf;normalizeLoadedModel(root,data);finish(root);}, undefined, fail); }
+  return holder;
+}
 function createDeskObject(type){
   const id=nextDeskObjId(type);
   S.deskObjects.push({id,type,x:0,y:2,z:0,rx:0,ry:0,rz:0,sx:1,sy:1,sz:1,visible:true,room:null});
   selectDeskObject(id);
+  commitHistory('Create '+type);
 }
 
 function selectDeskObject(objId){
@@ -1449,6 +1616,7 @@ function deleteDeskObject(objId){
   renderShapeCards();
   renderTransformControls();
   rb();
+  commitHistory('Delete shape');
 }
 
 function createShapeMesh(shape){
@@ -1614,11 +1782,11 @@ function renderTransformControls(){
 
 function updateShapeProperty(shapeId,prop,value){
   const shape=S.shapes.find(s=>s.id===shapeId);
-  if(shape){shape[prop]=value;rb();renderShapeCards();renderTransformControls()}
+  if(shape){shape[prop]=value;rb();renderShapeCards();renderTransformControls();scheduleHistory('Edit material '+shapeId)}
 }
 
 function updateObjectProperty(objId, prop, value) {
-  const obj = S.shapes.find(s=>s.id===objId) || S.groups.find(g=>g.id===objId) || S.deskObjects.find(o=>o.id===objId);
+  const obj = findEditableObject(objId);
   if (!obj) return;
   obj[prop] = value;
 
@@ -1660,6 +1828,7 @@ function renameObject(oldId, newId, objType) {
   S.shapes.forEach(s => allIds.push(s.id));
   S.groups.forEach(g => allIds.push(g.id));
   S.deskObjects.forEach(d => allIds.push(d.id));
+  (S.modelObjects||[]).forEach(m => allIds.push(m.id));
   
   if (newId !== oldId && allIds.includes(newId)) {
     alert('⚠ ID already exists: ' + newId);
@@ -1701,13 +1870,15 @@ function renameObject(oldId, newId, objType) {
   // Update selection
   S.selectedObject = S.shapes.find(s => s.id === newId) || 
                      S.groups.find(g => g.id === newId) || 
-                     S.deskObjects.find(d => d.id === newId);
+                     S.deskObjects.find(d => d.id === newId) ||
+                     (S.modelObjects||[]).find(m => m.id === newId);
   S.hierarchySelection = [{type: objType, id: newId}];
   
   // Refresh UI
   renderHierarchy();
   renderTransformControls();
   rb();
+  commitHistory('Delete shape');
 }
 
 function showSelectionIndicator(shape){
@@ -1719,6 +1890,7 @@ function showSelectionIndicator(shape){
 }
 
 function rb(){
+  const thisRender=++renderSerial;
   clrScene();
   const SZ=parseInt(v('rsz'))||40, WH=parseInt(v('wh'))||14;
   scene.fog=new THREE.FogExp2(h2i(v('fc')),fv('fd'));
@@ -1893,6 +2065,13 @@ function rb(){
     }
   });
 
+
+  // ---- RENDER IMPORTED MODELS ----
+  (S.modelObjects||[]).forEach(obj=>{
+    if(obj.visible===false) return;
+    const model=createModelObjectMesh(obj,thisRender);
+    add(model);
+  });
   // Show selection indicator if something is selected
   if(S.selectedObject){showSelectionIndicator(S.selectedObject);attachGizmoToObject(S.selectedObject);}
 
@@ -2008,6 +2187,49 @@ document.addEventListener('keyup', e => {
   flyCamera.keys[e.key] = false;
 });
 
+
+// ═══════════════════════════════════════════════════
+// SNAP MODE
+// ═══════════════════════════════════════════════════
+let snapEnabled = false;
+const SNAP_DISTANCE = 0.45;
+function toggleSnapMode(){
+  snapEnabled=!snapEnabled;
+  const b=$('snap-btn'); if(b){ b.textContent=snapEnabled?'SNAP ON':'SNAP OFF'; b.classList.toggle('snap-on', snapEnabled); }
+}
+function getObjectBounds(o){
+  if(!o) return null;
+  if((S.modelObjects||[]).includes(o)){
+    const w=(o.w||1)*o.sx, h=(o.h||1)*o.sy, d=(o.d||1)*o.sz;
+    return {min:{x:o.x-w/2,y:o.y,z:o.z-d/2},max:{x:o.x+w/2,y:o.y+h,z:o.z+d/2}};
+  }
+  if(S.shapes.includes(o)){
+    const w=o.sx||1,h=o.sy||1,d=o.sz||1;
+    return {min:{x:o.x-w/2,y:o.y,z:o.z-d/2},max:{x:o.x+w/2,y:o.y+h,z:o.z+d/2}};
+  }
+  return null;
+}
+function overlaps(a,b,axis){
+  const axes=['x','y','z'].filter(k=>k!==axis);
+  return axes.every(k=>a.min[k] <= b.max[k]+SNAP_DISTANCE && a.max[k] >= b.min[k]-SNAP_DISTANCE);
+}
+function applySnapToObject(obj){
+  if(!obj || obj.group) return;
+  const moving=getObjectBounds(obj); if(!moving) return;
+  const targets=[...S.shapes, ...(S.modelObjects||[])].filter(o=>o!==obj && !o.group);
+  let best=null;
+  targets.forEach(t=>{
+    const tb=getObjectBounds(t); if(!tb) return;
+    ['x','y','z'].forEach(axis=>{
+      if(!overlaps(moving,tb,axis)) return;
+      [[moving.min[axis],tb.max[axis]],[moving.max[axis],tb.min[axis]]].forEach(([a,b])=>{
+        const dist=Math.abs(a-b);
+        if(dist<=SNAP_DISTANCE && (!best || dist<best.dist)) best={axis,delta:b-a,dist};
+      });
+    });
+  });
+  if(best){ obj[best.axis]=parseFloat((obj[best.axis]+best.delta).toFixed(2)); }
+}
 // ═══════════════════════════════════════════════════
 // TRANSFORM GIZMO
 // ═══════════════════════════════════════════════════
@@ -2038,6 +2260,7 @@ function initTransformGizmo() {
         $('gizmo-mode').innerHTML = `<span style="color:#00ff88">⬤ GIZMO ACTIVE</span>`;
       } else {
         syncGizmoToState();
+        commitHistory('Gizmo transform');
         rb();
         const colors = {translate:'#00ff41', rotate:'#00cc33', scale:'#66ff99'};
         const labels = {translate:'T', rotate:'R', scale:'S'};
@@ -2058,6 +2281,7 @@ function syncGizmoToState() {
     obj.x = parseFloat(transformControls.object.position.x.toFixed(2));
     obj.y = parseFloat(transformControls.object.position.y.toFixed(2));
     obj.z = parseFloat(transformControls.object.position.z.toFixed(2));
+    if (snapEnabled) { applySnapToObject(obj); transformControls.object.position.set(obj.x,obj.y,obj.z); }
     // Also push the new position directly to the real mesh in the scene so it moves live
     scene.traverse(sceneObj => {
       if (sceneObj.userData && sceneObj.userData.selectableId === obj.id) {
@@ -2337,6 +2561,7 @@ canvas.addEventListener('mouseup', e => {
   if (FD.active && FD.obj) {
     // Commit: rebuild scene so geometry is truly updated
     renderTransformControls();
+    commitHistory('Face-drag scale');
     rb();
     // Re-build handles after rb() recreates scene objects
     setTimeout(() => {
@@ -2367,6 +2592,8 @@ canvas.addEventListener('mouseup', e => {
   }
   found = S.deskObjects.find(d => d.id === hit.id);
   if (found) { selectDeskObject(found.id); return; }
+  found = (S.modelObjects||[]).find(m => m.id === hit.id);
+  if (found) { selectModelObject(found.id); return; }
 });
 
 // ═══════════════════════════════════════════════════
@@ -2695,6 +2922,13 @@ function renderHierarchy(){
     tree.appendChild(node);
   });
 
+
+  (S.modelObjects||[]).forEach(o => {
+    const label = 'MODEL ' + (o.title || o.id);
+    const node = createHierarchyNode('modelObject', o.id, label, 'model3d');
+    if (S.hierarchySelection.some(sel => sel.type==='modelObject' && sel.id===o.id)) node.classList.add('sel');
+    tree.appendChild(node);
+  });
   S.portals.forEach((p, i) => {
     const node = createHierarchyNode('portal', 'portal_'+i, '🚪 '+(p.label||'Portal'), 'portal');
     if (S.hierarchySelection.some(sel => sel.type==='portal' && sel.id===('portal_'+i))) node.classList.add('sel');
@@ -2711,10 +2945,10 @@ function renderHierarchy(){
 function createHierarchyNode(type, id, label, sub){
   const node = document.createElement('div');
   node.className = 'h-node';
-  const canDup = type === 'shape' || type === 'deskObject';
-  const canDel = type === 'shape' || type === 'deskObject' || type === 'group';
+  const canDup = type === 'shape' || type === 'deskObject' || type === 'modelObject';
+  const canDel = type === 'shape' || type === 'deskObject' || type === 'modelObject' || type === 'group';
   const shapeIdx = type === 'shape' ? (S.shapes.findIndex(s=>s.id===id)+1) : null;
-  const dispLabel = type === 'shape' ? `◻ ${sub||'shape'} #${String(shapeIdx).padStart(3,'0')}` : label;
+  const dispLabel = type === 'shape' ? `◻ ${sub||'shape'} #${String(shapeIdx).padStart(3,'0')}` : (type === 'modelObject' ? `▣ ${label}` : label);
   node.innerHTML = `<span class="h-icon"></span><span class="h-name">${dispLabel}</span><span class="h-type">${sub||''}</span><span class="h-actions">${canDup?`<button class="h-act h-dup" title="Duplicate (Ctrl+D)" onclick="event.stopPropagation();duplicateItem('${type}','${id}')">⎘</button>`:''}${canDel?`<button class="h-act h-del" title="Delete (Del)" onclick="event.stopPropagation();deleteItem('${type}','${id}')">✕</button>`:''}</span>`;
   node.addEventListener('click', e => {
     if (e.ctrlKey || e.metaKey) {
@@ -2760,6 +2994,8 @@ function selectFromHierarchy(type, id){
     selectGroup(id);
   } else if (type==='deskObject') {
     selectDeskObject(id);
+  } else if (type==='modelObject') {
+    selectModelObject(id);
   }
   // selectShape/Group/DeskObject already handle scene rebuild + gizmo
 }
@@ -2815,6 +3051,7 @@ function groupSelected(){
   renderTransformControls();
   attachGizmoToObject(S.selectedObject);
   rb();
+  commitHistory('Delete shape');
 }
 
 function ungroupSelected(){
@@ -2857,6 +3094,7 @@ function ungroupSelected(){
   renderShapeCards();
   renderTransformControls();
   rb();
+  commitHistory('Delete shape');
 }
 
 
@@ -2878,12 +3116,19 @@ function duplicateItem(type, id) {
     const newId = nextDeskObjId(o.type);
     S.deskObjects.push({...o, id: newId, x: o.x+1, z: o.z+1});
     selectDeskObject(newId);
+  } else if (type === 'modelObject') {
+    const o = (S.modelObjects||[]).find(m => m.id === id);
+    if (!o) return;
+    const newId = nextModelId();
+    S.modelObjects.push({...o, id: newId, x: o.x+1, z: o.z+1});
+    selectModelObject(newId);
   }
 }
 
 function deleteItem(type, id) {
   if (type === 'shape') deleteShape(id);
   else if (type === 'deskObject') deleteDeskObject(id);
+  else if (type === 'modelObject') deleteModelObject(id);
   else if (type === 'group') deleteGroup(id);
 }
 
@@ -2903,6 +3148,9 @@ function deleteSelected() {
 document.addEventListener('keydown', e => {
   // Don't fire shortcuts when user is typing in an input
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undoAction(); return; }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') { e.preventDefault(); redoAction(); return; }
 
   // Delete / Backspace → delete selected
   if ((e.key === 'Delete' || e.key === 'Backspace') && S.hierarchySelection.length > 0) {
@@ -2931,6 +3179,9 @@ document.addEventListener('keydown', e => {
       } else if (type === 'deskObject') {
         const o = S.deskObjects.find(d => d.id === id);
         if (o) { clipboard = {type:'deskObject', data:{...o}}; }
+      } else if (type === 'modelObject') {
+        const o = (S.modelObjects||[]).find(m => m.id === id);
+        if (o) { clipboard = {type:'modelObject', data:{...o}}; }
       }
     }
     return;
@@ -2950,6 +3201,11 @@ document.addEventListener('keydown', e => {
       const newId = nextDeskObjId(d.type);
       S.deskObjects.push({...d, id: newId, x: d.x+1, z: d.z+1});
       selectDeskObject(newId);
+    } else if (clipboard.type === 'modelObject') {
+      const d = clipboard.data;
+      const newId = nextModelId();
+      S.modelObjects.push({...d, id: newId, x: d.x+1, z: d.z+1});
+      selectModelObject(newId);
     }
     return;
   }
@@ -2970,7 +3226,7 @@ function loadHomeRoomIfNeeded(){
   }
 }
 
-rSky(); rLights(); rDirLights(); rRectLights(); rIcons(); rPortals(); loadHomeRoomIfNeeded(); rb(); resize(); bindStaticScrubs(); initTransformGizmo();
+rSky(); rLights(); rDirLights(); rRectLights(); rIcons(); rPortals(); loadHomeRoomIfNeeded(); rb(); resize(); bindStaticScrubs(); initTransformGizmo(); commitHistory('Initial state');
 document.querySelectorAll('.subtab[data-main="objects"]').forEach(t=>t.style.display='none');
 renderHierarchy();
 </script>
